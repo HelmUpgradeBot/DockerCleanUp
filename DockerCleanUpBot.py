@@ -1,11 +1,9 @@
 """
 Script to delete images from an ACR that are 90 days older or more.
-Requires some environment variables to log into the Azure account.
+Requires the name of the ACR to delete images from.
 
 Usage:
-    USERNAME="<username>" PASSWORD="<password>" TENANT="<tenant-id>"
-    SUB="<subscription-name>" NAME="<registry-name>" python delete-old-images.py
-    --dry-run
+    NAME="<registry-name>" python DockerCleanUpBot.py --dry-run
 
 Requirements:
   - pandas
