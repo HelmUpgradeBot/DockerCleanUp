@@ -36,6 +36,7 @@ class dockerCleanUpBot:
             print(f"Number of images eligible for deletion: {self.images_to_be_deleted_number}")
         else:
             print(f"Number of images to be deleted: {self.images_to_be_deleted_number}")
+            self.delete_images()
 
     def login_to_acr(self):
         print("--> Login to ACR")
@@ -78,7 +79,7 @@ class dockerCleanUpBot:
                     self.images_to_be_deleted_digest.append(f"{REPO}@{MAINFEST['digest']}")
                     self.images_to_be_deleted_number += 1
 
-    def delete_repos(self):
+    def delete_images(self):
         for image in self.images_to_be_deleted_digest:
             print(f"--> Deleting image: {image}")
             check_call([
