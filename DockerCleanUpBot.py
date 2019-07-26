@@ -28,7 +28,7 @@ class dockerCleanUpBot:
         if self.dry_run:
             print("THIS IS A DRY RUN.  NO IMAGES WILL BE DELETED.")
 
-        self.login_to_acr()
+        self.login()
         REPOS = self.fetch_repos()
         self.check_manifests(REPOS)
 
@@ -38,7 +38,10 @@ class dockerCleanUpBot:
             print(f"Number of images to be deleted: {self.images_to_be_deleted_number}")
             self.delete_images()
 
-    def login_to_acr(self):
+    def login(self):
+        print("--> Login to Azure")
+        check_call(["az", "login", "--identity"])
+
         print("--> Login to ACR")
         check_call(["az", "acr", "login", "-n", REGISTRY_NAME])
 
