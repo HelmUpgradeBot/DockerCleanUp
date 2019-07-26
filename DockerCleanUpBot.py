@@ -69,7 +69,7 @@ def main():
 
             # Convert the manifest to a dict and extract timestamp
             MANIFEST = json.loads(output)
-            timestamp = pd.to_datetime(MANIFEST["timestamp"])
+            timestamp = pd.to_datetime(MANIFEST["timestamp"]).tz_localize(None)
 
             # Get time difference between now and the manifest timestamp
             diff = (pd.Timestamp.now() - timestamp).days
