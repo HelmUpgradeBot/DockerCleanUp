@@ -11,12 +11,19 @@ Requirements:
 
 import os
 import json
+import logging
 import argparse
 import pandas as pd
 from subprocess import check_call, check_output
 
 # Get environment variable
 REGISTRY_NAME = os.environ.get("NAME")
+
+# Set config for log file
+logging.basicConfig(
+        filename="DockerCleanUpBot.log",
+        filemode="a",
+    )
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -33,20 +40,20 @@ def main():
     args = parse_args()
 
     if args.dry_run:
-        print("THIS IS A DRY RUN.  NO IMAGES WILL BE DELETED.")
+        logging.info("THIS IS A DRY RUN.  NO IMAGES WILL BE DELETED.")
 
     # Set-up
     images_to_be_deleted_number = 0
     images_to_be_deleted_digest = []
 
     # Login
-    print("--> Login to Azure")
+    logging.info("--> Login to Azure")
     check_call("az login --identity -o none", shell=True)
-    print("--> Login to ACR")
+    logging.info("--> Login to ACR")
     check_call(f"az acr login -n {REGISTRY_NAME}", shell=True)
 
     # Get the repositories in the ACR
-    print("--> Fetching repositories")
+    logging.info("--> Fetching repositories")
     output = check_output(
         f"az acr repository list -n {REGISTRY_NAME} -o tsv",
         shell=True
@@ -80,12 +87,12 @@ def main():
                 images_to_be_deleted_number += 1
 
     if args.dry_run:
-        print(f"Number of images eligible for deletion: {images_to_be_deleted_number}")
+        logging.info(f"Number of images eligible for deletion: {images_to_be_deleted_number}")
     else:
-        print(f"Number of images to be deleted: {images_to_be_deleted_number}")
+        logging.info(f"Number of images to be deleted: {images_to_be_deleted_number}")
 
         for image in images_to_be_deleted_digest:
-            print(f"--> Deleting image: {image}")
+            logging.info(f"--> Deleting image: {image}")
             check_call(
                 f"az acr repository delete -n {REGISTRY_NAME} --image {image}",
                 shell=True
