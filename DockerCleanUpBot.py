@@ -40,17 +40,18 @@ class dockerCleanUpBot:
 
     def login(self):
         print("--> Login to Azure")
-        check_call(["az", "login", "--identity"], shell=True)
+        check_call("az login --identity", shell=True)
 
         print("--> Login to ACR")
-        check_call(["az", "acr", "login", "-n", REGISTRY_NAME], shell=True)
+        check_call(f"az acr login -n {REGISTRY_NAME}", shell=True)
 
     def fetch_repos(self):
         print("--> Fetching repositories")
         # Get the repositories in the ACR
-        output = check_output([
-            "az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"
-        ], shell=True).decode()
+        output = check_output(
+            f"az acr repository list -n {REGISTRY_NAME} -o tsv",
+            shell=True
+        ).decode()
         REPOS = output.split("\n")[:-1]
 
         return REPOS
@@ -59,10 +60,10 @@ class dockerCleanUpBot:
         # Loop over the repositories
         for REPO in REPOS:
             # Get the manifest for the current repository
-            output = check_output([
-                "az", "acr", "repository", "show-manifests", "-n", REGISTRY_NAME,
-                "--repository", REPO, "--orderby", "time_desc"
-            ], shell=True).decode()
+            output = check_output(
+                f"az acr repository show-manifests -n {REGISTRY_NAME} --repository {REPO} --orderby time_desc",
+                shell=True
+            ).decode()
             outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
 
             # Loop over the manifests for each repository
@@ -85,10 +86,10 @@ class dockerCleanUpBot:
     def delete_images(self):
         for image in self.images_to_be_deleted_digest:
             print(f"--> Deleting image: {image}")
-            check_call([
-                "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
-                "--image", f"{image}"
-            ], shell=True)
+            check_call(
+                f"az acr repository delete -n {REGISTRY_NAME} --image {image}",
+                shell=True
+            )
 
 def parse_args():
     parser = argparse.ArgumentParser()
