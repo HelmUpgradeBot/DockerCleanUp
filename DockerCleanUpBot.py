@@ -40,17 +40,17 @@ class dockerCleanUpBot:
 
     def login(self):
         print("--> Login to Azure")
-        check_call(["az", "login", "--identity"])
+        check_call(["az", "login", "--identity"], shell=True)
 
         print("--> Login to ACR")
-        check_call(["az", "acr", "login", "-n", REGISTRY_NAME])
+        check_call(["az", "acr", "login", "-n", REGISTRY_NAME], shell=True)
 
     def fetch_repos(self):
         print("--> Fetching repositories")
         # Get the repositories in the ACR
         output = check_output([
             "az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"
-        ]).decode()
+        ], shell=True).decode()
         REPOS = output.split("\n")[:-1]
 
         return REPOS
@@ -62,7 +62,7 @@ class dockerCleanUpBot:
             output = check_output([
                 "az", "acr", "repository", "show-manifests", "-n", REGISTRY_NAME,
                 "--repository", REPO, "--orderby", "time_desc"
-            ]).decode()
+            ], shell=True).decode()
             outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
 
             # Loop over the manifests for each repository
@@ -88,7 +88,7 @@ class dockerCleanUpBot:
             check_call([
                 "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
                 "--image", f"{image}"
-            ])
+            ], shell=True)
 
 def parse_args():
     parser = argparse.ArgumentParser()
