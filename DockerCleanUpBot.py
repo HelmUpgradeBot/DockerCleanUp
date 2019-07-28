@@ -19,12 +19,6 @@ from subprocess import check_call, check_output
 # Get environment variable
 REGISTRY_NAME = os.environ.get("NAME")
 
-# Set config for log file
-logging.basicConfig(
-        filename="DockerCleanUpBot.log",
-        filemode="a",
-    )
-
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -38,6 +32,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    # Set config for log file
+    logging.basicConfig(
+            filename="DockerCleanUpBot.log",
+            filemode="a",
+        )
 
     if args.dry_run:
         logging.info("THIS IS A DRY RUN.  NO IMAGES WILL BE DELETED.")
