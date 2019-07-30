@@ -11,81 +11,22 @@ Requirements:
 
 import os
 import json
+import logging
 import argparse
+import subprocess
 import pandas as pd
-from subprocess import check_call, check_output
 
 # Get environment variable
 REGISTRY_NAME = os.environ.get("NAME")
 
-class dockerCleanUpBot:
-    def __init__(self):
-        self.dry_run = True if args.dry_run is None else args.dry_run
-        self.images_to_be_deleted_number = 0
-        self.images_to_be_deleted_digest = []
-
-    def cleanup(self):
-        if self.dry_run:
-            print("THIS IS A DRY RUN.  NO IMAGES WILL BE DELETED.")
-
-        self.login_to_acr()
-        REPOS = self.fetch_repos()
-        self.check_manifests(REPOS)
-
-        if self.dry_run:
-            print(f"Number of images eligible for deletion: {self.images_to_be_deleted_number}")
-        else:
-            print(f"Number of images to be deleted: {self.images_to_be_deleted_number}")
-            self.delete_images()
-
-    def login_to_acr(self):
-        print("--> Login to ACR")
-        check_call(["az", "acr", "login", "-n", REGISTRY_NAME])
-
-    def fetch_repos(self):
-        print("--> Fetching repositories")
-        # Get the repositories in the ACR
-        output = check_output([
-            "az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"
-        ]).decode()
-        REPOS = output.split("\n")[:-1]
-
-        return REPOS
-
-    def check_manifests(self, REPOS):
-        # Loop over the repositories
-        for REPO in REPOS:
-            # Get the manifest for the current repository
-            output = check_output([
-                "az", "acr", "repository", "show-manifests", "-n", REGISTRY_NAME,
-                "--repository", REPO, "--orderby", "time_desc"
-            ]).decode()
-            outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
-
-            # Loop over the manifests for each repository
-            for j, output in enumerate(outputs):
-                if j < (len(outputs) - 1):
-                    output += "}"
-
-                # Convert the manifest to a dict and extract timestamp
-                MANIFEST = json.loads(output)
-                timestamp = pd.to_datetime(MANIFEST["timestamp"])
-
-                # Get time difference between now and the manifest timestamp
-                diff = (pd.Timestamp.now() - timestamp).days
-
-                # If an image is 90 days old or more, delete it
-                if diff >= 90:
-                    self.images_to_be_deleted_digest.append(f"{REPO}@{MAINFEST['digest']}")
-                    self.images_to_be_deleted_number += 1
-
-    def delete_images(self):
-        for image in self.images_to_be_deleted_digest:
-            print(f"--> Deleting image: {image}")
-            check_call([
-                "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
-                "--image", f"{image}"
-            ])
+# Set up logging config
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename="DockerCleanUpBot.log",
+    filemode="a",
+    format="[%(asctime)s %(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -98,7 +39,125 @@ def parse_args():
 
     return parser.parse_args()
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
-    bot = dockerCleanUpBot()
-    bot.cleanup()
+
+    if args.dry_run:
+        logging.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
+
+    # Set-up
+    images_to_be_deleted_number = 0
+    images_to_be_deleted_digest = []
+    deleted_images_total = 0
+
+    # Login to Azure
+    logging.info("Login to Azure")
+    proc = subprocess.Popen(
+        ["az", "login", "--identity"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    if proc.returncode == 0:
+        logging.info("Successfully logged into Azure")
+    else:
+        err_msg = proc.communicate()[1].decode(encoding="utf-8")
+        logging.error(err_msg)
+
+    # Login in to ACR
+    logging.info("Login to ACR")
+    proc = subprocess.Popen(
+        ["az", "acr", "login", "-n", REGISTRY_NAME],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    res = proc.communicate()
+    if proc.returncode == 0:
+        logging.info(f"Successfully logged into ACR: {REGISTRY_NAME}")
+    else:
+        err_msg = res[1].decode(encoding="utf-8")
+        logging.error(f"{err_msg}")
+
+    # Get the repositories in the ACR
+    logging.info(f"Fetching repositories in: {REGISTRY_NAME}")
+    proc = subprocess.Popen(
+        ["az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    res = proc.communicate()
+    if proc.returncode == 0:
+        logging.info(f"Successfully fetched repositories from: {REGISTRY_NAME}")
+        output = res[0].decode(encoding="utf-8")
+        REPOS = output.split("\n")[:-1]
+        logging.info(f"Total number of repositories: {len(REPOS)}")
+    else:
+        err_msg = res[1].decode(encoding="utf-8")
+        logging.error(err_msg)
+
+    # Loop over the repositories
+    logging.info("Checking repository manifests")
+    for REPO in REPOS:
+        # Get the manifest for the current repository
+        proc = subprocess.Popen(
+            [
+                "az", "acr", "repository", "show-manifests", "-n",
+                REGISTRY_NAME, "--repository", REPO, "--orderby", "time_desc"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        res = proc.communicate()
+        if proc.returncode == 0:
+            logging.info(f"Successfully pulled manifests for: {REPO}")
+            output = res[0].decode(encoding="utf-8")
+            outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
+            logging.info(f"Total number of manifests in {REPO}: {len(outputs)}")
+        else:
+            err_msg = res[1].decode(encoding="utf-8")
+            logging.error(err_msg)
+
+        # Loop over the manifests for each repository
+        for j, output in enumerate(outputs):
+            if j < (len(outputs) - 1):
+                output += "}"
+
+            # Convert the manifest to a dict and extract timestamp
+            MANIFEST = json.loads(output)
+            timestamp = pd.to_datetime(MANIFEST["timestamp"]).tz_localize(None)
+
+            # Get time difference between now and the manifest timestamp
+            diff = (pd.Timestamp.now() - timestamp).days
+
+            # If an image is 90 days old or more, delete it
+            if diff >= 90:
+                logging.info(f"{REPO}@{MANIFEST['digest']} is {diff} days old.")
+                images_to_be_deleted_digest.append(f"{REPO}@{MANIFEST['digest']}")
+                images_to_be_deleted_number += 1
+
+    if args.dry_run:
+        logging.info(f"Number of images eligible for deletion: {images_to_be_deleted_number}")
+    else:
+        logging.info(f"Number of images to be deleted: {images_to_be_deleted_number}")
+
+        for image in images_to_be_deleted_digest:
+            logging.info(f"Deleting image: {image}")
+            proc = subprocess.Popen(
+                [
+                    "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
+                    "--image", image
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            res = proc.communicate()
+            if proc.returncode == 0:
+                logging.info(f"Successfully deleted image: {image}")
+                deleted_images_total += 1
+            else:
+                err_msg = res[1].decode(encoding="utf-8")
+                logging.error(err_msg)
+
+        logging.info(f"Number of images deleted: {deleted_images_total}")
+
+if __name__ == "__main__":
+    main()
