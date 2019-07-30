@@ -13,8 +13,8 @@ import os
 import json
 import logging
 import argparse
+import subprocess
 import pandas as pd
-from subprocess import check_call, check_output
 
 # Get environment variable
 REGISTRY_NAME = os.environ.get("NAME")
@@ -48,29 +48,73 @@ def main():
     # Set-up
     images_to_be_deleted_number = 0
     images_to_be_deleted_digest = []
+    deleted_images_total = 0
 
-    # Login
+    # Login to Azure
     logging.info("Login to Azure")
-    check_call("az login --identity -o none", shell=True)
+    proc = subprocess.Popen(
+        ["az", "login", "--identity"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    if proc.returncode == 0:
+        logging.info("Successfully logged into Azure")
+    else:
+        err_msg = proc.communicate()[1].decode(encoding="utf-8")
+        logging.error(err_msg)
+
+    # Login in to ACR
     logging.info("Login to ACR")
-    check_call(f"az acr login -n {REGISTRY_NAME}", shell=True)
+    proc = subprocess.Popen(
+        ["az", "acr", "login", "-n", REGISTRY_NAME],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    res = proc.communicate()
+    if proc.returncode == 0:
+        logging.info(f"Successfully logged into ACR: {REGISTRY_NAME}")
+    else:
+        err_msg = res[1].decode(encoding="utf-8")
+        logging.error(f"{err_msg}")
 
     # Get the repositories in the ACR
-    logging.info("Fetching repositories")
-    output = check_output(
-        f"az acr repository list -n {REGISTRY_NAME} -o tsv",
-        shell=True
-    ).decode()
-    REPOS = output.split("\n")[:-1]
+    logging.info(f"Fetching repositories in: {REGISTRY_NAME}")
+    proc = subprocess.Popen(
+        ["az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    res = proc.communicate()
+    if proc.returncode == 0:
+        logging.info(f"Successfully fetched repositories from: {REGISTRY_NAME}")
+        output = res[0].decode(encoding="utf-8")
+        REPOS = output.split("\n")[:-1]
+        logging.info(f"Total number of repositories: {len(REPOS)}")
+    else:
+        err_msg = res[1].decode(encoding="utf-8")
+        logging.error(err_msg)
 
     # Loop over the repositories
+    logging.info("Checking repository manifests")
     for REPO in REPOS:
         # Get the manifest for the current repository
-        output = check_output(
-            f"az acr repository show-manifests -n {REGISTRY_NAME} --repository {REPO} --orderby time_desc",
-            shell=True
-        ).decode()
-        outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
+        proc = subprocess.Popen(
+            [
+                "az", "acr", "repository", "show-manifests", "-n",
+                REGISTRY_NAME, "--repository", REPO, "--orderby", "time_desc"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        res = proc.communicate()
+        if proc.returncode == 0:
+            logging.info(f"Successfully pulled manifests for: {REPO}")
+            output = res[0].decode(encoding="utf-8")
+            outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
+            logging.info(f"Total number of manifests in {REPO}: {len(outputs)}")
+        else:
+            err_msg = res[1].decode(encoding="utf-8")
+            logging.error(err_msg)
 
         # Loop over the manifests for each repository
         for j, output in enumerate(outputs):
@@ -86,7 +130,8 @@ def main():
 
             # If an image is 90 days old or more, delete it
             if diff >= 90:
-                images_to_be_deleted_digest.append(f"{REPO}@{MAINFEST['digest']}")
+                logging.info(f"{REPO}@{MANIFEST['digest']} is {diff} days old.")
+                images_to_be_deleted_digest.append(f"{REPO}@{MANIFEST['digest']}")
                 images_to_be_deleted_number += 1
 
     if args.dry_run:
@@ -96,10 +141,23 @@ def main():
 
         for image in images_to_be_deleted_digest:
             logging.info(f"Deleting image: {image}")
-            check_call(
-                f"az acr repository delete -n {REGISTRY_NAME} --image {image}",
-                shell=True
+            proc = subprocess.Popen(
+                [
+                    "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
+                    "--image", image
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
             )
+            res = proc.communicate()
+            if proc.returncode == 0:
+                logging.info(f"Successfully deleted image: {image}")
+                deleted_images_total += 1
+            else:
+                err_msg = res[1].decode(encoding="utf-8")
+                logging.error(err_msg)
+
+        logging.info(f"Number of images deleted: {deleted_images_total}")
 
 if __name__ == "__main__":
     main()
