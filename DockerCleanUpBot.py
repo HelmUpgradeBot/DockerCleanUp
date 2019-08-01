@@ -17,9 +17,6 @@ import subprocess
 import pandas as pd
 from CustomExceptions import *
 
-# Get environment variable
-REGISTRY_NAME = os.environ.get("NAME")
-
 # Set up logging config
 logging.basicConfig(
     level=logging.DEBUG,
@@ -30,8 +27,17 @@ logging.basicConfig(
 )
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Script to clean old Docker images out of an Azure Container Registry"
+    )
 
+    parser.add_argument(
+        "-n",
+        "--name",
+        type=str,
+        required=True,
+        help="Name of Azure Container Registry to clean"
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -58,41 +64,42 @@ def main():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
+    res = proc.communicate()
     if proc.returncode == 0:
         logging.info("Successfully logged into Azure")
     else:
-        err_msg = proc.communicate()[1].decode(encoding="utf-8")
+        err_msg = res[1].decode(encoding="utf-8")
         logging.error(err_msg)
         raise AzureError(err_msg)
 
     # Login to ACR
     logging.info("Login to ACR")
     proc = subprocess.Popen(
-        ["az", "acr", "login", "-n", REGISTRY_NAME],
+        ["az", "acr", "login", "-n", args.name],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
     res = proc.communicate()
     if proc.returncode == 0:
-        logging.info(f"Successfully logged into ACR: {REGISTRY_NAME}")
+        logging.info(f"Successfully logged into ACR: {args.name}")
     else:
         err_msg = res[1].decode(encoding="utf-8")
         logging.error(err_msg)
         raise AzureError(err_msg)
 
     # Get the repositories in the ACR
-    logging.info(f"Fetching repositories in: {REGISTRY_NAME}")
+    logging.info(f"Fetching repositories in: {args.name}")
     proc = subprocess.Popen(
-        ["az", "acr", "repository", "list", "-n", REGISTRY_NAME, "-o", "tsv"],
+        ["az", "acr", "repository", "list", "-n", args.name, "-o", "tsv"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
     res = proc.communicate()
     if proc.returncode == 0:
-        logging.info(f"Successfully fetched repositories from: {REGISTRY_NAME}")
+        logging.info(f"Successfully fetched repositories from: {args.name}")
         output = res[0].decode(encoding="utf-8")
-        REPOS = output.split("\n")[:-1]
-        logging.info(f"Total number of repositories: {len(REPOS)}")
+        repos = output.split("\n")[:-1]
+        logging.info(f"Total number of repositories: {len(repos)}")
     else:
         err_msg = res[1].decode(encoding="utf-8")
         logging.error(err_msg)
@@ -100,22 +107,22 @@ def main():
 
     # Loop over the repositories
     logging.info("Checking repository manifests")
-    for REPO in REPOS:
+    for repo in repos:
         # Get the manifest for the current repository
         proc = subprocess.Popen(
             [
                 "az", "acr", "repository", "show-manifests", "-n",
-                REGISTRY_NAME, "--repository", REPO, "--orderby", "time_desc"
+                args.name, "--repository", repo, "--orderby", "time_desc"
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         res = proc.communicate()
         if proc.returncode == 0:
-            logging.info(f"Successfully pulled manifests for: {REPO}")
+            logging.info(f"Successfully pulled manifests for: {repo}")
             output = res[0].decode(encoding="utf-8")
             outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
-            logging.info(f"Total number of manifests in {REPO}: {len(outputs)}")
+            logging.info(f"Total number of manifests in {repo}: {len(outputs)}")
         else:
             err_msg = res[1].decode(encoding="utf-8")
             logging.error(err_msg)
@@ -127,16 +134,16 @@ def main():
                 output += "}"
 
             # Convert the manifest to a dict and extract timestamp
-            MANIFEST = json.loads(output)
-            timestamp = pd.to_datetime(MANIFEST["timestamp"]).tz_localize(None)
+            manifest = json.loads(output)
+            timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
 
             # Get time difference between now and the manifest timestamp
             diff = (pd.Timestamp.now() - timestamp).days
 
             # If an image is 90 days old or more, delete it
             if diff >= 90:
-                logging.info(f"{REPO}@{MANIFEST['digest']} is {diff} days old.")
-                images_to_be_deleted_digest.append(f"{REPO}@{MANIFEST['digest']}")
+                logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
+                images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
                 images_to_be_deleted_number += 1
 
     if args.dry_run:
@@ -148,7 +155,7 @@ def main():
             logging.info(f"Deleting image: {image}")
             proc = subprocess.Popen(
                 [
-                    "az", "acr", "repository", "delete", "-n", REGISTRY_NAME,
+                    "az", "acr", "repository", "delete", "-n", args.name,
                     "--image", image
                 ],
                 stdout=subprocess.PIPE,
