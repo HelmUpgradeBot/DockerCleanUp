@@ -2,6 +2,13 @@
 
 This is an automatable bot to clean up Docker images stored in an Azure Container Registry (ACR) that are 90 days old or more.
 
+- [Overview](#overview)
+- [Assumptions DockerCleanUp Makes](#assumptions-dockercleanupbot-makes)
+- [Usage](#usage)
+- [Requirements](#requirements)
+
+---
+
 ## Overview
 
 * Login into the requested ACR via the Azure CLI
@@ -9,18 +16,22 @@ This is an automatable bot to clean up Docker images stored in an Azure Containe
 * Check the manifests for each repository and log the digests of those that are 90 days old or older
 * If it's not a dry-run, delete all the logged digests
 
+## Assumptions DockerCleanUpBot Makes
+
+To login to Azure, the bot assumes it's being running from a resource with a [Managed System Identity](https://docs.microsoft.com/en-gb/azure/active-directory/managed-identities-azure-resources/overview) with enough permissions ([Reader and AcrDelete](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-roles) at least) to access the ACR.
+
 ## Usage
 
-To run the bot, parse the name of the ACR you'd like to clean as an environment variable:
+Run the bot with the following command:
 
 ```
-NAME="<acr-name>" python DockerCleanUpBot.py
+python DockerCleanUpBot.py --name ACR-NAME
 ```
 
 To perform a dry-run, parse the `--dry-run` flag:
 
 ```
-NAME="<acr-name>" python DockerCleanUpBot.py --dry-run
+python DockerCleanUpBot.py --name ACR-NAME --dry-run
 ```
 
 ## Requirements
