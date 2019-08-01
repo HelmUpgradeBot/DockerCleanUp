@@ -39,6 +39,11 @@ def parse_args():
         help="Name of Azure Container Registry to clean"
     )
     parser.add_argument(
+        "--identity",
+        action="store_true",
+        help="Login to Azure with a Managed System Identity"
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Do a dry-run, no images will be deleted."
@@ -58,11 +63,15 @@ def main():
     deleted_images_total = 0
 
     # Login to Azure
-    logging.info("Login to Azure")
+    login_cmd = ["az", "login"]
+    if args.identity:
+        login_cmd.append("--identity")
+        logging.info("Login to Azure with Managed System Identity")
+    else:
+        logging.info("Login to Azure")
+
     proc = subprocess.Popen(
-        ["az", "login", "--identity"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        login_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     res = proc.communicate()
     if proc.returncode == 0:
