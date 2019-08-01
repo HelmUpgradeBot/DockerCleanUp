@@ -15,6 +15,7 @@ import logging
 import argparse
 import subprocess
 import pandas as pd
+from CustomExceptions import *
 
 # Get environment variable
 REGISTRY_NAME = os.environ.get("NAME")
@@ -62,8 +63,9 @@ def main():
     else:
         err_msg = proc.communicate()[1].decode(encoding="utf-8")
         logging.error(err_msg)
+        raise AzureError(err_msg)
 
-    # Login in to ACR
+    # Login to ACR
     logging.info("Login to ACR")
     proc = subprocess.Popen(
         ["az", "acr", "login", "-n", REGISTRY_NAME],
@@ -75,7 +77,8 @@ def main():
         logging.info(f"Successfully logged into ACR: {REGISTRY_NAME}")
     else:
         err_msg = res[1].decode(encoding="utf-8")
-        logging.error(f"{err_msg}")
+        logging.error(err_msg)
+        raise AzureError(err_msg)
 
     # Get the repositories in the ACR
     logging.info(f"Fetching repositories in: {REGISTRY_NAME}")
@@ -93,6 +96,7 @@ def main():
     else:
         err_msg = res[1].decode(encoding="utf-8")
         logging.error(err_msg)
+        raise AzureError(err_msg)
 
     # Loop over the repositories
     logging.info("Checking repository manifests")
@@ -115,6 +119,7 @@ def main():
         else:
             err_msg = res[1].decode(encoding="utf-8")
             logging.error(err_msg)
+            raise AzureError(err_msg)
 
         # Loop over the manifests for each repository
         for j, output in enumerate(outputs):
@@ -156,6 +161,7 @@ def main():
             else:
                 err_msg = res[1].decode(encoding="utf-8")
                 logging.error(err_msg)
+                raise AzureError(err_msg)
 
         logging.info(f"Number of images deleted: {deleted_images_total}")
 
