@@ -16,6 +16,7 @@ import argparse
 import subprocess
 import pandas as pd
 from CustomExceptions import *
+from run_command import run_cmd
 
 # Set up logging config
 logging.basicConfig(
@@ -70,72 +71,54 @@ def main():
     else:
         logging.info("Login to Azure")
 
-    proc = subprocess.Popen(
-        login_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    res = proc.communicate()
-    if proc.returncode == 0:
+    result = run_cmd(login_cmd)
+    if result["returncode"] == 0:
         logging.info("Successfully logged into Azure")
     else:
-        err_msg = res[1].decode(encoding="utf-8")
-        logging.error(err_msg)
-        raise AzureError(err_msg)
+        logging.error(result["err_msg"])
+        raise AzureError(result["err_msg"])
 
     # Login to ACR
     logging.info("Login to ACR")
-    proc = subprocess.Popen(
-        ["az", "acr", "login", "-n", args.name],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    res = proc.communicate()
-    if proc.returncode == 0:
+    acr_cmd = ["az", "acr", "login", "-n", args.name]
+
+    result = run_cmd(acr_cmd)
+    if result["returncode"] == 0:
         logging.info(f"Successfully logged into ACR: {args.name}")
     else:
-        err_msg = res[1].decode(encoding="utf-8")
-        logging.error(err_msg)
-        raise AzureError(err_msg)
+        logging.error(result["err_msg"])
+        raise AzureError(result["err_msg"])
 
     # Get the repositories in the ACR
     logging.info(f"Fetching repositories in: {args.name}")
-    proc = subprocess.Popen(
-        ["az", "acr", "repository", "list", "-n", args.name, "-o", "tsv"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    res = proc.communicate()
-    if proc.returncode == 0:
+    list_cmd = ["az", "acr", "repository", "list", "-n", args.name, "-o", "tsv"]
+
+    result = run_cmd(list_cmd)
+    if result["returncode"] == 0:
         logging.info(f"Successfully fetched repositories from: {args.name}")
-        output = res[0].decode(encoding="utf-8")
-        repos = output.split("\n")[:-1]
+        repos = result["output"].split("\n")[:-1]
         logging.info(f"Total number of repositories: {len(repos)}")
     else:
-        err_msg = res[1].decode(encoding="utf-8")
-        logging.error(err_msg)
-        raise AzureError(err_msg)
+        logging.error(result["err_msg"])
+        raise AzureError(result["err_msg"])
 
     # Loop over the repositories
     logging.info("Checking repository manifests")
     for repo in repos:
         # Get the manifest for the current repository
-        proc = subprocess.Popen(
-            [
-                "az", "acr", "repository", "show-manifests", "-n",
-                args.name, "--repository", repo, "--orderby", "time_desc"
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        res = proc.communicate()
-        if proc.returncode == 0:
+        show_cmd = [
+            "az", "acr", "repository", "show-manifests", "-n",
+            args.name, "--repository", repo, "--orderby", "time_desc"
+        ]
+
+        result = run_cmd(show_cmd)
+        if result["returncode"] == 0:
             logging.info(f"Successfully pulled manifests for: {repo}")
-            output = res[0].decode(encoding="utf-8")
-            outputs = output.replace("\n", "").replace(" ", "")[1:-1].split("},")
+            outputs = result["output"].replace("\n", "").replace(" ", "")[1:-1].split("},")
             logging.info(f"Total number of manifests in {repo}: {len(outputs)}")
         else:
-            err_msg = res[1].decode(encoding="utf-8")
-            logging.error(err_msg)
-            raise AzureError(err_msg)
+            logging.error(result["err_msg"])
+            raise AzureError(result["err_msg"])
 
         # Loop over the manifests for each repository
         for j, output in enumerate(outputs):
@@ -162,22 +145,18 @@ def main():
 
         for image in images_to_be_deleted_digest:
             logging.info(f"Deleting image: {image}")
-            proc = subprocess.Popen(
-                [
-                    "az", "acr", "repository", "delete", "-n", args.name,
-                    "--image", image
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            res = proc.communicate()
-            if proc.returncode == 0:
+            del_cmd = [
+                "az", "acr", "repository", "delete", "-n", args.name,
+                "--image", image
+            ]
+
+            result = run_cmd(del_cmd)
+            if result["returncode"] == 0:
                 logging.info(f"Successfully deleted image: {image}")
                 deleted_images_total += 1
             else:
-                err_msg = res[1].decode(encoding="utf-8")
-                logging.error(err_msg)
-                raise AzureError(err_msg)
+                logging.error(result["err_msg"])
+                raise AzureError(result["err_msg"])
 
         logging.info(f"Number of images deleted: {deleted_images_total}")
 
