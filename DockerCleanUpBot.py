@@ -1,19 +1,7 @@
-"""
-Script to delete images from an ACR that are 90 days older or more.
-Requires the name of the ACR to delete images from.
-
-Usage:
-    NAME="<registry-name>" python DockerCleanUpBot.py --dry-run
-
-Requirements:
-  - pandas
-"""
-
 import os
 import json
 import logging
 import argparse
-import subprocess
 import pandas as pd
 from CustomExceptions import *
 from run_command import run_cmd
