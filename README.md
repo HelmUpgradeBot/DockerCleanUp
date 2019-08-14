@@ -57,10 +57,6 @@ sudo apt install docker.io -y
 sudo usermod -a -G docker $USER
 ```
 
-## Permissions
-
-The user (or machine) running this script will need _at least_ `Reader` and `AcrDelete` role permissions to the ACR.
-
 ## CRON expression
 
 Run this script at midnight on the first day of every month:
