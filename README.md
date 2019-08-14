@@ -42,4 +42,29 @@ The bot requires Python v3.7 and the `pandas` package listed in [`requirements.t
 pip install -r requirements.txt
 ```
 
-The bot will need access to the [Microsoft Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) in order to query the ACR.
+The bot will need access to the [Microsoft Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) and the [Docker CLI](https://docs-stage.docker.com/v17.12/install/) in order to query the ACR.
+
+### Installing Azure CLI
+
+```
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+### Installing Docker CLI (on Linux)
+
+```
+sudo apt install docker.io -y
+sudo usermod -a -G docker $USER
+```
+
+## Permissions
+
+The user (or machine) running this script will need _at least_ `Reader` and `AcrDelete` role permissions to the ACR.
+
+## CRON expression
+
+Run this script at midnight on the first day of every month:
+
+```
+0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python DockerCleanUpBot.py [--flags]
+```
