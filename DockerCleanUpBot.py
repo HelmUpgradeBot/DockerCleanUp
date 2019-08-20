@@ -28,6 +28,13 @@ def parse_args():
         help="Name of Azure Container Registry to clean"
     )
     parser.add_argument(
+        "-a",
+        "--max-age",
+        type=int,
+        default=90,
+        help="Maximum age of images, older images will be deleted."
+    )
+    parser.add_argument(
         "--identity",
         action="store_true",
         help="Login to Azure with a Managed System Identity"
@@ -120,8 +127,8 @@ def main():
             # Get time difference between now and the manifest timestamp
             diff = (pd.Timestamp.now() - timestamp).days
 
-            # If an image is 90 days old or more, delete it
-            if diff >= 90:
+            # If an image is too old, delete it
+            if diff >= args.max_age:
                 logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
                 images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
                 images_to_be_deleted_number += 1
