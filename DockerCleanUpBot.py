@@ -75,11 +75,12 @@ class DockerCleanUpBot(object):
         self.check_acr_size()
 
         if self.size < (self.limit * 1000.0):
-            logging.info(f"{self.name} size is less than: {self.limit:.2f} TB. Performing standard clean up operations.")
+            logging.info(f"{self.name} size is LESS THAN: {self.limit:.2f} TB. Performing STANDARD clean up operations.")
             self.aggressive = False
         else:
-            logging.info(f"{self.name} size is larger than: {self.limit:.2f} TB. Performing an aggressive clean up operation.")
+            logging.info(f"{self.name} size is LARGER THAN: {self.limit:.2f} TB. Performing AGGRESSIVE clean up operations.")
             self.aggressive = True
+            self.max_age = 60
 
         repos = self.fetch_repos()
 
@@ -186,7 +187,7 @@ class DockerCleanUpBot(object):
                 diff = (pd.Timestamp.now() - timestamp).days
                 logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
 
-                # If an image is too old, at it to delete list
+                # If an image is too old, add it to delete list
                 if diff >= self.max_age:
                     self.images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
                     self.images_to_be_deleted_number += 1
@@ -253,6 +254,7 @@ class DockerCleanUpBot(object):
                     image_df.loc[image_number] = [
                         f"{repo@manifest['digest']}", image_size
                     ]
+                    image_number += 1
                     logging.info(f"Size of image {repo@manifest['digest']}: {image_size:.2f} GB")
                 else:
                     logging.error(result["err_msg"])
