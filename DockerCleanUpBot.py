@@ -35,6 +35,13 @@ def parse_args():
         help="Maximum age of images, older images will be deleted."
     )
     parser.add_argument(
+        "-l",
+        "--limit",
+        type=float,
+        default=2,
+        help="Maximum size the ACR is allowed to grow to in TB"
+    )
+    parser.add_argument(
         "--identity",
         action="store_true",
         help="Login to Azure with a Managed System Identity"
