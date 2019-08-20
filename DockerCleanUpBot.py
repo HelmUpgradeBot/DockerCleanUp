@@ -271,6 +271,9 @@ class DockerCleanUpBot(object):
         image_df.sort_values("size", ascending=False, inplace=True)
         image_df.reset_index(drop=True, inplace=True)
 
+        if len(image_df) < number:
+            number = len(image_df)
+
         for i, row in image_df.iterrows():
             if i < number:
                 freed_up_space += row["size"]
