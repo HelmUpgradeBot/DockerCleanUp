@@ -91,76 +91,97 @@ def main():
         logging.error(result["err_msg"])
         raise AzureError(result["err_msg"])
 
-    # Get the repositories in the ACR
-    logging.info(f"Fetching repositories in: {args.name}")
-    list_cmd = ["az", "acr", "repository", "list", "-n", args.name, "-o", "tsv"]
+    # Check the size of the ACR
+    logging.info(f"Checking size of ACR: {args.name}")
+    size_cmd = [
+        "az", "acr", "show-usage", "-n", args.name, "--query",
+        "{}".format("value[?name=='Size'].currentValue"), "-o", "tsv"
+    ]
 
-    result = run_cmd(list_cmd)
+    result = run_cmd(size_cmd)
     if result["returncode"] == 0:
-        logging.info(f"Successfully fetched repositories from: {args.name}")
-        repos = result["output"].split("\n")[:-1]
-        logging.info(f"Total number of repositories: {len(repos)}")
+        size = int(result["output"]) * 1.0e-9
+        logging.info(f"Size of {args.name}: {size:.2f} GB")
     else:
         logging.error(result["err_msg"])
         raise AzureError(result["err_msg"])
 
-    # Loop over the repositories
-    logging.info("Checking repository manifests")
-    for repo in repos:
-        # Get the manifest for the current repository
-        show_cmd = [
-            "az", "acr", "repository", "show-manifests", "-n",
-            args.name, "--repository", repo, "--orderby", "time_desc"
-        ]
+    if size < (args.limit * 1000.0):
+        logging.info(f"{args.name} size is less than: {args.limit:.2f} TB. Performing standard clean up operations.")
 
-        result = run_cmd(show_cmd)
+        # Get the repositories in the ACR
+        logging.info(f"Fetching repositories in: {args.name}")
+        list_cmd = ["az", "acr", "repository", "list", "-n", args.name, "-o", "tsv"]
+
+        result = run_cmd(list_cmd)
         if result["returncode"] == 0:
-            logging.info(f"Successfully pulled manifests for: {repo}")
-            outputs = result["output"].replace("\n", "").replace(" ", "")[1:-1].split("},")
-            logging.info(f"Total number of manifests in {repo}: {len(outputs)}")
+            logging.info(f"Successfully fetched repositories from: {args.name}")
+            repos = result["output"].split("\n")[:-1]
+            logging.info(f"Total number of repositories: {len(repos)}")
         else:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
 
-        # Loop over the manifests for each repository
-        for j, output in enumerate(outputs):
-            if j < (len(outputs) - 1):
-                output += "}"
-
-            # Convert the manifest to a dict and extract timestamp
-            manifest = json.loads(output)
-            timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
-
-            # Get time difference between now and the manifest timestamp
-            diff = (pd.Timestamp.now() - timestamp).days
-
-            # If an image is too old, delete it
-            if diff >= args.max_age:
-                logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
-                images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
-                images_to_be_deleted_number += 1
-
-    if args.dry_run:
-        logging.info(f"Number of images eligible for deletion: {images_to_be_deleted_number}")
-    else:
-        logging.info(f"Number of images to be deleted: {images_to_be_deleted_number}")
-
-        for image in images_to_be_deleted_digest:
-            logging.info(f"Deleting image: {image}")
-            del_cmd = [
-                "az", "acr", "repository", "delete", "-n", args.name,
-                "--image", image
+        # Loop over the repositories
+        logging.info("Checking repository manifests")
+        for repo in repos:
+            # Get the manifest for the current repository
+            show_cmd = [
+                "az", "acr", "repository", "show-manifests", "-n",
+                args.name, "--repository", repo, "--orderby", "time_desc"
             ]
 
-            result = run_cmd(del_cmd)
+            result = run_cmd(show_cmd)
             if result["returncode"] == 0:
-                logging.info(f"Successfully deleted image: {image}")
-                deleted_images_total += 1
+                logging.info(f"Successfully pulled manifests for: {repo}")
+                outputs = result["output"].replace("\n", "").replace(" ", "")[1:-1].split("},")
+                logging.info(f"Total number of manifests in {repo}: {len(outputs)}")
             else:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-        logging.info(f"Number of images deleted: {deleted_images_total}")
+            # Loop over the manifests for each repository
+            for j, output in enumerate(outputs):
+                if j < (len(outputs) - 1):
+                    output += "}"
+
+                # Convert the manifest to a dict and extract timestamp
+                manifest = json.loads(output)
+                timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
+
+                # Get time difference between now and the manifest timestamp
+                diff = (pd.Timestamp.now() - timestamp).days
+
+                # If an image is too old, delete it
+                if diff >= args.max_age:
+                    logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
+                    images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
+                    images_to_be_deleted_number += 1
+
+        if args.dry_run:
+            logging.info(f"Number of images eligible for deletion: {images_to_be_deleted_number}")
+        else:
+            logging.info(f"Number of images to be deleted: {images_to_be_deleted_number}")
+
+            for image in images_to_be_deleted_digest:
+                logging.info(f"Deleting image: {image}")
+                del_cmd = [
+                    "az", "acr", "repository", "delete", "-n", args.name,
+                    "--image", image
+                ]
+
+                result = run_cmd(del_cmd)
+                if result["returncode"] == 0:
+                    logging.info(f"Successfully deleted image: {image}")
+                    deleted_images_total += 1
+                else:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
+
+            logging.info(f"Number of images deleted: {deleted_images_total}")
+
+    else:
+        logging.info(f"{args.name} size is larger than: {args.limit:.2f} TB. Performing an aggressive clean up operation.")
 
 if __name__ == "__main__":
     main()
