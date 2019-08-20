@@ -277,15 +277,9 @@ class DockerCleanUpBot(object):
         for i, row in image_df.iterrows():
             if i < number:
                 freed_up_space += row["size"]
-            else:
-                break
 
-        logging.info(f"Space saved by deleting the {number} largest images: {freed_up_space} GB")
-
-        if not dry_run:
-            for i, row in image_df.iterrows():
-                if i < number:
-                    logging.info(f"Deleteing image: {row['image']}")
+                if not dry_run:
+                    logging.info(f"Deleting image: {row['image']}")
                     delete_cmd = [
                         "az", "acr", "repository", "delete", "-n", self.name,
                         "--image", f"{row['image']}"
@@ -297,6 +291,10 @@ class DockerCleanUpBot(object):
                     else:
                         logging.error(result["err_msg"])
                         raise AzureError(result["err_msg"])
+            else:
+                break
+
+        logging.info(f"Space saved by deleting the {number} largest images: {freed_up_space} GB")
 
 if __name__ == "__main__":
     args = parse_args()
