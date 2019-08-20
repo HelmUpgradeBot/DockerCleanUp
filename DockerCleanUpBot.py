@@ -82,13 +82,18 @@ class DockerCleanUpBot(object):
             self.aggressive = True
 
         repos = self.fetch_repos()
+
+        if self.aggressive:
+            image_df = self.get_image_sizes(repos)
+            self.sort_and_delete(image_df, dry_run=self.dry_run)
+
         self.check_manifests(repos)
 
         if self.dry_run:
             logging.info(f"Number of images eligible for deletion: {self.images_to_be_deleted_number}")
         else:
             logging.info(f"Number of images to be deleted: {self.images_to_be_deleted_number}")
-            self.clean_up()
+            self.delete_images()
 
     def login(self):
         # Login to Azure
@@ -156,7 +161,7 @@ class DockerCleanUpBot(object):
             # Get the manifest for the current repository
             show_cmd = [
                 "az", "acr", "repository", "show-manifests", "-n",
-                self.name, "--repository", repo, "--orderby", "time_desc"
+                self.name, "--repository", repo
             ]
 
             result = run_cmd(show_cmd)
@@ -187,7 +192,7 @@ class DockerCleanUpBot(object):
                     self.images_to_be_deleted_number += 1
 
     def delete_images(self):
-        for image in selfimages_to_be_deleted_digest:
+        for image in self.images_to_be_deleted_digest:
             logging.info(f"Deleting image: {image}")
             del_cmd = [
                 "az", "acr", "repository", "delete", "-n", self.name,
@@ -203,6 +208,88 @@ class DockerCleanUpBot(object):
                 raise AzureError(result["err_msg"])
 
         logging.info(f"Number of images deleted: {self.deleted_images_total}")
+
+    def get_image_sizes(self, repos):
+        logging.info("Collating image sizes")
+        image_df = pd.DataFrame(columns=["image", "size"])
+        image_number = 0
+
+        # Loop over the repositories
+        logging.info("Checking repository manifests")
+        for repo in repos:
+            # Get the manifest for the current repository
+            show_cmd = [
+                "az", "acr", "repository", "show-manifests", "-n",
+                self.name, "--repository", repo
+            ]
+
+            result = run_cmd(show_cmd)
+            if result["returncode"] == 0:
+                logging.info(f"Successfully pulled manifests for: {repo}")
+                outputs = result["output"].replace("\n", "").replace(" ", "")[1:-1].split("},")
+                logging.info(f"Total number of manifests in {repo}: {len(outputs)}")
+            else:
+                logging.error(result["err_msg"])
+                raise AzureError(result["err_msg"])
+
+            # Loop over the manifests for each repository
+            for j, output in enumerate(outputs):
+                if j < (len(outputs) - 1):
+                    output += "}"
+
+                # Convert the manifest to a dict and extract timestamp
+                manifest = json.loads(output)
+
+                # Check the size of each image
+                image_size_cmd = [
+                    "az", "acr", "repository", "show", "-n", self.name,
+                    "--image", f"{repo@manifest['digest']}", "--query",
+                     "imageSize", "-o", "tsv"
+                ]
+
+                result = run_cmd(image_size_cmd)
+                if result["returncode"] == 0:
+                    image_size = int(result["output"]) * 1.0e-9
+                    image_df.loc[image_number] = [
+                        f"{repo@manifest['digest']}", image_size
+                    ]
+                    logging.info(f"Size of image {repo@manifest['digest']}: {image_size:.2f} GB")
+                else:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
+
+        return image_df
+
+    def sort_and_delete(self, image_df, number=25, dry_run=True):
+        freed_up_space = 0
+
+        logging.info("Sorting images by descending size")
+        image_df.sort_values("size", ascending=False, inplace=True)
+        image_df.reset_index(drop=True, inplace=True)
+
+        for i, row in image_df.iterrows():
+            if i < number:
+                freed_up_space += row["size"]
+            else:
+                break
+
+        logging.info(f"Space saved by deleting the {number} largest images: {freed_up_space} GB")
+
+        if not dry_run:
+            for i, row in image_df.iterrows():
+                if i < number:
+                    logging.info(f"Deleteing image: {row['image']}")
+                    delete_cmd = [
+                        "az", "acr", "repository", "delete", "-n", self.name,
+                        "--image", f"{row['image']}"
+                    ]
+
+                    result = run_cmd(delete_cmd)
+                    if result["returncode"] == 0:
+                        logging.info(f"Successfully delete image: {row['image']}")
+                    else:
+                        logging.error(result["err_msg"])
+                        raise AzureError(result["err_msg"])
 
 if __name__ == "__main__":
     args = parse_args()
