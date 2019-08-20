@@ -10,7 +10,7 @@ from run_command import run_cmd
 logging.basicConfig(
     level=logging.DEBUG,
     filename="DockerCleanUpBot_{}.log".format(
-        pd.Timestamp.today().strftime("%Y%m%d%H%M%S")
+        pd.Timestamp.today().strftime("%Y%m%d_%H%M%S")
     ),
     filemode="a",
     format="[%(asctime)s %(levelname)s] %(message)s",
