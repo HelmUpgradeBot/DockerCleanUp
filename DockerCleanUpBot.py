@@ -270,7 +270,7 @@ class DockerCleanUpBot(object):
                     ]
                     image_number += 1
                     logging.info(
-                        f"Size of image {repo@manifest['digest']}: {image_size:.2f} GB"
+                        f"Size of image {repo}@{manifest['digest']}: {image_size:.2f} GB"
                     )
                 else:
                     logging.error(result["err_msg"])
