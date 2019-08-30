@@ -256,7 +256,7 @@ class DockerCleanUpBot(object):
                 # Check the size of each image
                 image_size_cmd = [
                     "az", "acr", "repository", "show", "-n", self.name,
-                    "--image", f"{repo@manifest['digest']}", "--query",
+                    "--image", f"{repo}@{manifest['digest']}", "--query",
                      "imageSize", "-o", "tsv"
                 ]
 
@@ -264,7 +264,7 @@ class DockerCleanUpBot(object):
                 if result["returncode"] == 0:
                     image_size = int(result["output"]) * 1.0e-9
                     image_df.loc[image_number] = [
-                        f"{repo@manifest['digest']}", image_size
+                        f"{repo}@{manifest['digest']}", image_size
                     ]
                     image_number += 1
                     logging.info(
