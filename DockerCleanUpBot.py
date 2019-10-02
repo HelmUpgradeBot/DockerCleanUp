@@ -87,15 +87,13 @@ class DockerCleanUpBot:
         if self.size < (self.limit * 1000.0):
             logging.info(
                 "%s size is LESS THAN: %.2f TB. Performing STANDARD clean up operations."
-                % self.name,
-                self.limit,
+                % (self.name, self.limit)
             )
             self.aggressive = False
         else:
             logging.info(
                 "%s size is LARGER THAN: %.2f TB. Performing AGGRESSIVE clean up operations."
-                % self.name,
-                self.limit,
+                % (self.name, self.limit)
             )
             self.aggressive = True
             self.max_age = 60
@@ -174,7 +172,7 @@ class DockerCleanUpBot:
             raise AzureError(result["err_msg"])
 
         self.size = int(result["output"]) * 1.0e-9
-        logging.info("Size of %s: %.2f GB" % self.name, self.size)
+        logging.info("Size of %s: %.2f GB" % (self.name, self.size))
 
     def fetch_repos(self):
         """Get the repositories in the ACR"""
@@ -232,7 +230,7 @@ class DockerCleanUpBot:
                 .split("},")
             )
             logging.info(
-                "Total number of manifests in %s: %d" % repo, len(outputs)
+                "Total number of manifests in %s: %d" % (repo, len(outputs))
             )
 
             # Loop over the manifests for each repository
@@ -249,13 +247,13 @@ class DockerCleanUpBot:
                 # Get time difference between now and the manifest timestamp
                 diff = (pd.Timestamp.now() - timestamp).days
                 logging.info(
-                    "%s@%s is %d days old." % repo, manifest["digest"], diff
+                    "%s@%s is %d days old." % (repo, manifest["digest"], diff)
                 )
 
                 # If an image is too old, add it to delete list
                 if diff >= self.max_age:
                     self.images_to_be_deleted_digest.append(
-                        "%s@%s" % repo, manifest["digest"]
+                        "%s@%s" % (repo, manifest["digest"])
                     )
                     self.images_to_be_deleted_number += 1
 
@@ -323,7 +321,7 @@ class DockerCleanUpBot:
                 .split("},")
             )
             logging.info(
-                "Total number of manifests in %s: %d" % repo, len(outputs)
+                "Total number of manifests in %s: %d" % (repo, len(outputs))
             )
 
             # Loop over the manifests for each repository
@@ -363,9 +361,8 @@ class DockerCleanUpBot:
                 ]
                 image_number += 1
                 logging.info(
-                    "Size of image %s@%s: %.2f GB" % repo,
-                    manifest["digest"],
-                    image_size,
+                    "Size of image %s@%s: %.2f GB"
+                    % (repo, manifest["digest"], image_size)
                 )
 
         return image_df
@@ -412,8 +409,8 @@ class DockerCleanUpBot:
                 break
 
         logging.info(
-            "Space saved by deleting the %d largest images: %d GB" % number,
-            freed_up_space,
+            "Space saved by deleting the %d largest images: %d GB"
+            % (number, freed_up_space)
         )
 
 
