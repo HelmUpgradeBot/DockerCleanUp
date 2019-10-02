@@ -262,6 +262,7 @@ class DockerCleanUpBot:
                 self.name,
                 "--image",
                 image,
+                "--yes",
             ]
 
             result = run_cmd(del_cmd)
@@ -378,6 +379,7 @@ class DockerCleanUpBot:
                         self.name,
                         "--image",
                         f"{row['image']}",
+                        "--yes",
                     ]
 
                     result = run_cmd(delete_cmd)
