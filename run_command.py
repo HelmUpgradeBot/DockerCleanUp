@@ -1,5 +1,6 @@
 import subprocess
 
+
 def run_cmd(cmd):
     """Use Popen to run a subprocess command
 
@@ -14,9 +15,7 @@ def run_cmd(cmd):
     result = {}
 
     proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     output = proc.communicate()
 

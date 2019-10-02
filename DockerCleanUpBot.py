@@ -14,8 +14,9 @@ logging.basicConfig(
     filename="DockerCleanUpBot.log",
     filemode="a",
     format="[%(asctime)s %(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
+
 
 def parse_args():
     """Parse command line arguments and return them"""
@@ -28,37 +29,39 @@ def parse_args():
         "--name",
         type=str,
         required=True,
-        help="Name of Azure Container Registry to clean"
+        help="Name of Azure Container Registry to clean",
     )
     parser.add_argument(
         "-a",
         "--max-age",
         type=int,
         default=90,
-        help="Maximum age of images, older images will be deleted."
+        help="Maximum age of images, older images will be deleted.",
     )
     parser.add_argument(
         "-l",
         "--limit",
         type=float,
         default=2,
-        help="Maximum size the ACR is allowed to grow to in TB"
+        help="Maximum size the ACR is allowed to grow to in TB",
     )
     parser.add_argument(
         "--identity",
         action="store_true",
-        help="Login to Azure with a Managed System Identity"
+        help="Login to Azure with a Managed System Identity",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Do a dry-run, no images will be deleted."
+        help="Do a dry-run, no images will be deleted.",
     )
 
     return parser.parse_args()
 
-class DockerCleanUpBot():
+
+class DockerCleanUpBot:
     """Clean up unused Docker images"""
+
     def __init__(self, argsDict):
         self.images_to_be_deleted_number = 0
         self.images_to_be_deleted_digest = []
@@ -82,10 +85,14 @@ class DockerCleanUpBot():
         self.check_acr_size()
 
         if self.size < (self.limit * 1000.0):
-            logging.info(f"{self.name} size is LESS THAN: {self.limit:.2f} TB. Performing STANDARD clean up operations.")
+            logging.info(
+                f"{self.name} size is LESS THAN: {self.limit:.2f} TB. Performing STANDARD clean up operations."
+            )
             self.aggressive = False
         else:
-            logging.info(f"{self.name} size is LARGER THAN: {self.limit:.2f} TB. Performing AGGRESSIVE clean up operations.")
+            logging.info(
+                f"{self.name} size is LARGER THAN: {self.limit:.2f} TB. Performing AGGRESSIVE clean up operations."
+            )
             self.aggressive = True
             self.max_age = 60
 
@@ -99,9 +106,13 @@ class DockerCleanUpBot():
         self.check_manifests(repos)
 
         if self.dry_run:
-            logging.info(f"Number of images eligible for deletion: {self.images_to_be_deleted_number}")
+            logging.info(
+                f"Number of images eligible for deletion: {self.images_to_be_deleted_number}"
+            )
         else:
-            logging.info(f"Number of images to be deleted: {self.images_to_be_deleted_number}")
+            logging.info(
+                f"Number of images to be deleted: {self.images_to_be_deleted_number}"
+            )
             self.delete_images()
 
     def login(self):
@@ -137,8 +148,15 @@ class DockerCleanUpBot():
         """Check the size of the ACR"""
         logging.info(f"Checking size of ACR: {self.name}")
         size_cmd = [
-            "az", "acr", "show-usage", "-n", self.name, "--query",
-            "{}".format("value[?name=='Size'].currentValue"), "-o", "tsv"
+            "az",
+            "acr",
+            "show-usage",
+            "-n",
+            self.name,
+            "--query",
+            "{}".format("value[?name=='Size'].currentValue"),
+            "-o",
+            "tsv",
         ]
 
         result = run_cmd(size_cmd)
@@ -153,7 +171,14 @@ class DockerCleanUpBot():
         """Get the repositories in the ACR"""
         logging.info(f"Fetching repositories in: {self.name}")
         list_cmd = [
-            "az", "acr", "repository", "list", "-n", self.name, "-o", "tsv"
+            "az",
+            "acr",
+            "repository",
+            "list",
+            "-n",
+            self.name,
+            "-o",
+            "tsv",
         ]
 
         result = run_cmd(list_cmd)
@@ -174,14 +199,25 @@ class DockerCleanUpBot():
         for repo in repos:
             # Get the manifest for the current repository
             show_cmd = [
-                "az", "acr", "repository", "show-manifests", "-n",
-                self.name, "--repository", repo
+                "az",
+                "acr",
+                "repository",
+                "show-manifests",
+                "-n",
+                self.name,
+                "--repository",
+                repo,
             ]
 
             result = run_cmd(show_cmd)
             if result["returncode"] == 0:
                 logging.info(f"Successfully pulled manifests for: {repo}")
-                outputs = result["output"].replace("\n", "").replace(" ", "")[1:-1].split("},")
+                outputs = (
+                    result["output"]
+                    .replace("\n", "")
+                    .replace(" ", "")[1:-1]
+                    .split("},")
+                )
                 logging.info(
                     f"Total number of manifests in {repo}: {len(outputs)}"
                 )
@@ -196,15 +232,21 @@ class DockerCleanUpBot():
 
                 # Convert the manifest to a dict and extract timestamp
                 manifest = json.loads(output)
-                timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
+                timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(
+                    None
+                )
 
                 # Get time difference between now and the manifest timestamp
                 diff = (pd.Timestamp.now() - timestamp).days
-                logging.info(f"{repo}@{manifest['digest']} is {diff} days old.")
+                logging.info(
+                    f"{repo}@{manifest['digest']} is {diff} days old."
+                )
 
                 # If an image is too old, add it to delete list
                 if diff >= self.max_age:
-                    self.images_to_be_deleted_digest.append(f"{repo}@{manifest['digest']}")
+                    self.images_to_be_deleted_digest.append(
+                        f"{repo}@{manifest['digest']}"
+                    )
                     self.images_to_be_deleted_number += 1
 
     def delete_images(self):
@@ -212,8 +254,14 @@ class DockerCleanUpBot():
         for image in self.images_to_be_deleted_digest:
             logging.info(f"Deleting image: {image}")
             del_cmd = [
-                "az", "acr", "repository", "delete", "-n", self.name,
-                "--image", image
+                "az",
+                "acr",
+                "repository",
+                "delete",
+                "-n",
+                self.name,
+                "--image",
+                image,
             ]
 
             result = run_cmd(del_cmd)
@@ -237,15 +285,25 @@ class DockerCleanUpBot():
         for repo in repos:
             # Get the manifest for the current repository
             show_cmd = [
-                "az", "acr", "repository", "show-manifests", "-n",
-                self.name, "--repository", repo
+                "az",
+                "acr",
+                "repository",
+                "show-manifests",
+                "-n",
+                self.name,
+                "--repository",
+                repo,
             ]
 
             result = run_cmd(show_cmd)
             if result["returncode"] == 0:
                 logging.info(f"Successfully pulled manifests for: {repo}")
-                outputs = result["output"].replace(
-                    "\n", "").replace(" ", "")[1:-1].split("},")
+                outputs = (
+                    result["output"]
+                    .replace("\n", "")
+                    .replace(" ", "")[1:-1]
+                    .split("},")
+                )
                 logging.info(
                     f"Total number of manifests in {repo}: {len(outputs)}"
                 )
@@ -263,16 +321,26 @@ class DockerCleanUpBot():
 
                 # Check the size of each image
                 image_size_cmd = [
-                    "az", "acr", "repository", "show", "-n", self.name,
-                    "--image", f"{repo}@{manifest['digest']}", "--query",
-                    "imageSize", "-o", "tsv"
+                    "az",
+                    "acr",
+                    "repository",
+                    "show",
+                    "-n",
+                    self.name,
+                    "--image",
+                    f"{repo}@{manifest['digest']}",
+                    "--query",
+                    "imageSize",
+                    "-o",
+                    "tsv",
                 ]
 
                 result = run_cmd(image_size_cmd)
                 if result["returncode"] == 0:
                     image_size = int(result["output"]) * 1.0e-9
                     image_df.loc[image_number] = [
-                        f"{repo}@{manifest['digest']}", image_size
+                        f"{repo}@{manifest['digest']}",
+                        image_size,
                     ]
                     image_number += 1
                     logging.info(
@@ -302,8 +370,14 @@ class DockerCleanUpBot():
                 if not dry_run:
                     logging.info(f"Deleting image: {row['image']}")
                     delete_cmd = [
-                        "az", "acr", "repository", "delete", "-n", self.name,
-                        "--image", f"{row['image']}"
+                        "az",
+                        "acr",
+                        "repository",
+                        "delete",
+                        "-n",
+                        self.name,
+                        "--image",
+                        f"{row['image']}",
                     ]
 
                     result = run_cmd(delete_cmd)
@@ -321,11 +395,13 @@ class DockerCleanUpBot():
             f"Space saved by deleting the {number} largest images: {freed_up_space} GB"
         )
 
+
 def main():
     """Main function"""
     args = parse_args()
     bot = DockerCleanUpBot(vars(args))
     bot.clean_up()
+
 
 if __name__ == "__main__":
     main()
