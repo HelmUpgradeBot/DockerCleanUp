@@ -86,12 +86,16 @@ class DockerCleanUpBot:
 
         if self.size < (self.limit * 1000.0):
             logging.info(
-                f"{self.name} size is LESS THAN: {self.limit:.2f} TB. Performing STANDARD clean up operations."
+                "%s size is LESS THAN: %.2f TB. Performing STANDARD clean up operations."
+                % self.name,
+                self.limit,
             )
             self.aggressive = False
         else:
             logging.info(
-                f"{self.name} size is LARGER THAN: {self.limit:.2f} TB. Performing AGGRESSIVE clean up operations."
+                "%s size is LARGER THAN: %.2f TB. Performing AGGRESSIVE clean up operations."
+                % self.name,
+                self.limit,
             )
             self.aggressive = True
             self.max_age = 60
@@ -107,11 +111,13 @@ class DockerCleanUpBot:
 
         if self.dry_run:
             logging.info(
-                f"Number of images eligible for deletion: {self.images_to_be_deleted_number}"
+                "Number of images eligible for deletion: %d"
+                % self.images_to_be_deleted_number
             )
         else:
             logging.info(
-                f"Number of images to be deleted: {self.images_to_be_deleted_number}"
+                "Number of images to be deleted: %d"
+                % self.images_to_be_deleted_number
             )
             self.delete_images()
 
@@ -144,11 +150,11 @@ class DockerCleanUpBot:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
 
-        logging.info(f"Successfully logged into ACR: {self.name}")
+        logging.info("Successfully logged into ACR: %s" % self.name)
 
     def check_acr_size(self):
         """Check the size of the ACR"""
-        logging.info(f"Checking size of ACR: {self.name}")
+        logging.info("Checking size of ACR: %s" % self.name)
         size_cmd = [
             "az",
             "acr",
@@ -168,11 +174,11 @@ class DockerCleanUpBot:
             raise AzureError(result["err_msg"])
 
         self.size = int(result["output"]) * 1.0e-9
-        logging.info(f"Size of {self.name}: {self.size:.2f} GB")
+        logging.info("Size of %s: %.2f GB" % self.name, self.size)
 
     def fetch_repos(self):
         """Get the repositories in the ACR"""
-        logging.info(f"Fetching repositories in: {self.name}")
+        logging.info("Fetching repositories in: %s" % self.name)
         list_cmd = [
             "az",
             "acr",
@@ -190,9 +196,9 @@ class DockerCleanUpBot:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
 
-        logging.info(f"Successfully fetched repositories from: {self.name}")
+        logging.info("Successfully fetched repositories from: %s" % self.name)
         repos = result["output"].split("\n")[:-1]
-        logging.info(f"Total number of repositories: {len(repos)}")
+        logging.info("Total number of repositories: %d" % len(repos))
         return repos
 
     def check_manifests(self, repos):
@@ -218,7 +224,7 @@ class DockerCleanUpBot:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-            logging.info(f"Successfully pulled manifests for: {repo}")
+            logging.info("Successfully pulled manifests for: %s" % repo)
             outputs = (
                 result["output"]
                 .replace("\n", "")
@@ -226,7 +232,7 @@ class DockerCleanUpBot:
                 .split("},")
             )
             logging.info(
-                f"Total number of manifests in {repo}: {len(outputs)}"
+                "Total number of manifests in %s: %d" % repo, len(outputs)
             )
 
             # Loop over the manifests for each repository
@@ -243,20 +249,20 @@ class DockerCleanUpBot:
                 # Get time difference between now and the manifest timestamp
                 diff = (pd.Timestamp.now() - timestamp).days
                 logging.info(
-                    f"{repo}@{manifest['digest']} is {diff} days old."
+                    "%s@%s is %d days old." % repo, manifest["digest"], diff
                 )
 
                 # If an image is too old, add it to delete list
                 if diff >= self.max_age:
                     self.images_to_be_deleted_digest.append(
-                        f"{repo}@{manifest['digest']}"
+                        "%s@%s" % repo, manifest["digest"]
                     )
                     self.images_to_be_deleted_number += 1
 
     def delete_images(self):
         """Perform image deletion"""
         for image in self.images_to_be_deleted_digest:
-            logging.info(f"Deleting image: {image}")
+            logging.info("Deleting image: %s" % image)
             del_cmd = [
                 "az",
                 "acr",
@@ -275,10 +281,12 @@ class DockerCleanUpBot:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-            logging.info(f"Successfully deleted image: {image}")
+            logging.info("Successfully deleted image: %s" % image)
             self.deleted_images_total += 1
 
-        logging.info(f"Number of images deleted: {self.deleted_images_total}")
+        logging.info(
+            "Number of images deleted: %d" % self.deleted_images_total
+        )
 
     def get_image_sizes(self, repos):
         """Get a dataframe with the sizes of all Docker images"""
@@ -307,7 +315,7 @@ class DockerCleanUpBot:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-            logging.info(f"Successfully pulled manifests for: {repo}")
+            logging.info("Successfully pulled manifests for: %s" % repo)
             outputs = (
                 result["output"]
                 .replace("\n", "")
@@ -315,7 +323,7 @@ class DockerCleanUpBot:
                 .split("},")
             )
             logging.info(
-                f"Total number of manifests in {repo}: {len(outputs)}"
+                "Total number of manifests in %s: %d" % repo, len(outputs)
             )
 
             # Loop over the manifests for each repository
@@ -355,7 +363,9 @@ class DockerCleanUpBot:
                 ]
                 image_number += 1
                 logging.info(
-                    f"Size of image {repo}@{manifest['digest']}: {image_size:.2f} GB"
+                    "Size of image %s@%s: %.2f GB" % repo,
+                    manifest["digest"],
+                    image_size,
                 )
 
         return image_df
@@ -376,7 +386,7 @@ class DockerCleanUpBot:
                 freed_up_space += row["size"]
 
                 if not dry_run:
-                    logging.info(f"Deleting image: {row['image']}")
+                    logging.info("Deleting image: %s" % row["image"])
                     delete_cmd = [
                         "az",
                         "acr",
@@ -395,12 +405,15 @@ class DockerCleanUpBot:
                         logging.error(result["err_msg"])
                         raise AzureError(result["err_msg"])
 
-                    logging.info(f"Successfully delete image: {row['image']}")
+                    logging.info(
+                        "Successfully delete image: %s" % row["image"]
+                    )
             else:
                 break
 
         logging.info(
-            f"Space saved by deleting the {number} largest images: {freed_up_space} GB"
+            "Space saved by deleting the %d largest images: %d GB" % number,
+            freed_up_space,
         )
 
 
