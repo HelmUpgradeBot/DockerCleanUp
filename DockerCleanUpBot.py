@@ -127,22 +127,24 @@ class DockerCleanUpBot:
             logging.info("Login to Azure")
 
         result = run_cmd(login_cmd)
-        if result["returncode"] == 0:
-            logging.info("Successfully logged into Azure")
-        else:
+
+        if result["returncode"] != 0:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
+
+        logging.info("Successfully logged into Azure")
 
         # Login to ACR
         logging.info("Login to ACR")
         acr_cmd = ["az", "acr", "login", "-n", self.name]
 
         result = run_cmd(acr_cmd)
-        if result["returncode"] == 0:
-            logging.info(f"Successfully logged into ACR: {self.name}")
-        else:
+
+        if result["returncode"] != 0:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
+
+        logging.info(f"Successfully logged into ACR: {self.name}")
 
     def check_acr_size(self):
         """Check the size of the ACR"""
@@ -160,12 +162,13 @@ class DockerCleanUpBot:
         ]
 
         result = run_cmd(size_cmd)
-        if result["returncode"] == 0:
-            self.size = int(result["output"]) * 1.0e-9
-            logging.info(f"Size of {self.name}: {self.size:.2f} GB")
-        else:
+
+        if result["returncode"] != 0:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
+
+        self.size = int(result["output"]) * 1.0e-9
+        logging.info(f"Size of {self.name}: {self.size:.2f} GB")
 
     def fetch_repos(self):
         """Get the repositories in the ACR"""
@@ -210,20 +213,21 @@ class DockerCleanUpBot:
             ]
 
             result = run_cmd(show_cmd)
-            if result["returncode"] == 0:
-                logging.info(f"Successfully pulled manifests for: {repo}")
-                outputs = (
-                    result["output"]
-                    .replace("\n", "")
-                    .replace(" ", "")[1:-1]
-                    .split("},")
-                )
-                logging.info(
-                    f"Total number of manifests in {repo}: {len(outputs)}"
-                )
-            else:
+
+            if result["returncode"] != 0:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
+
+            logging.info(f"Successfully pulled manifests for: {repo}")
+            outputs = (
+                result["output"]
+                .replace("\n", "")
+                .replace(" ", "")[1:-1]
+                .split("},")
+            )
+            logging.info(
+                f"Total number of manifests in {repo}: {len(outputs)}"
+            )
 
             # Loop over the manifests for each repository
             for j, output in enumerate(outputs):
@@ -266,12 +270,13 @@ class DockerCleanUpBot:
             ]
 
             result = run_cmd(del_cmd)
-            if result["returncode"] == 0:
-                logging.info(f"Successfully deleted image: {image}")
-                self.deleted_images_total += 1
-            else:
+
+            if result["returncode"] != 0:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
+
+            logging.info(f"Successfully deleted image: {image}")
+            self.deleted_images_total += 1
 
         logging.info(f"Number of images deleted: {self.deleted_images_total}")
 
@@ -297,20 +302,21 @@ class DockerCleanUpBot:
             ]
 
             result = run_cmd(show_cmd)
-            if result["returncode"] == 0:
-                logging.info(f"Successfully pulled manifests for: {repo}")
-                outputs = (
-                    result["output"]
-                    .replace("\n", "")
-                    .replace(" ", "")[1:-1]
-                    .split("},")
-                )
-                logging.info(
-                    f"Total number of manifests in {repo}: {len(outputs)}"
-                )
-            else:
+
+            if result["returncode"] != 0:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
+
+            logging.info(f"Successfully pulled manifests for: {repo}")
+            outputs = (
+                result["output"]
+                .replace("\n", "")
+                .replace(" ", "")[1:-1]
+                .split("},")
+            )
+            logging.info(
+                f"Total number of manifests in {repo}: {len(outputs)}"
+            )
 
             # Loop over the manifests for each repository
             for j, output in enumerate(outputs):
@@ -337,19 +343,20 @@ class DockerCleanUpBot:
                 ]
 
                 result = run_cmd(image_size_cmd)
-                if result["returncode"] == 0:
-                    image_size = int(result["output"]) * 1.0e-9
-                    image_df.loc[image_number] = [
-                        f"{repo}@{manifest['digest']}",
-                        image_size,
-                    ]
-                    image_number += 1
-                    logging.info(
-                        f"Size of image {repo}@{manifest['digest']}: {image_size:.2f} GB"
-                    )
-                else:
+
+                if result["returncode"] != 0:
                     logging.error(result["err_msg"])
                     raise AzureError(result["err_msg"])
+
+                image_size = int(result["output"]) * 1.0e-9
+                image_df.loc[image_number] = [
+                    f"{repo}@{manifest['digest']}",
+                    image_size,
+                ]
+                image_number += 1
+                logging.info(
+                    f"Size of image {repo}@{manifest['digest']}: {image_size:.2f} GB"
+                )
 
         return image_df
 
@@ -383,13 +390,12 @@ class DockerCleanUpBot:
                     ]
 
                     result = run_cmd(delete_cmd)
-                    if result["returncode"] == 0:
-                        logging.info(
-                            f"Successfully delete image: {row['image']}"
-                        )
-                    else:
+
+                    if result["returncode"] != 0:
                         logging.error(result["err_msg"])
                         raise AzureError(result["err_msg"])
+
+                    logging.info(f"Successfully delete image: {row['image']}")
             else:
                 break
 
