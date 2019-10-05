@@ -70,11 +70,8 @@ class DockerCleanUpBot:
         self.size = None
 
         # Parse arguments
-        self.name = argsDict["name"]
-        self.max_age = argsDict["max_age"]
-        self.limit = argsDict["limit"]
-        self.identity = argsDict["identity"]
-        self.dry_run = argsDict["dry_run"]
+        for k, v in argsDict.items():
+            setattr(self, k, v)
 
     def clean_up(self):
         """Perform image deletion"""
