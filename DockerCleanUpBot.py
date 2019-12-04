@@ -198,6 +198,9 @@ class DockerCleanUpBot:
 
     def check_manifests(self, repos):
         """Check the manifests for each image in the repository"""
+        # Create an empty dataframe
+        df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
+
         # Loop over the repositories
         logging.info("Checking repository manifests")
         for repo in repos:
@@ -247,12 +250,39 @@ class DockerCleanUpBot:
                     "%s@%s is %d days old." % (repo, manifest["digest"], diff)
                 )
 
-                # If an image is too old, add it to delete list
-                if diff >= self.max_age:
-                    self.images_to_be_deleted_digest.append(
-                        "%s@%s" % (repo, manifest["digest"])
-                    )
-                    self.images_to_be_deleted_number += 1
+                # Check the size of each image
+                image_size_cmd = [
+                    "az",
+                    "acr",
+                    "repository",
+                    "show",
+                    "-n",
+                    self.name,
+                    "--image",
+                    f"{repo}@{manifest['digest']}",
+                    "--query",
+                    "imageSize",
+                    "-o",
+                    "tsv",
+                ]
+
+                result = run_cmd(image_size_cmd)
+
+                if result["returncode"] != 0:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
+
+                image_size = int(result["output"]) * 1.0e-9
+
+                # Append to dataframe
+                df = df.append(
+                    {
+                        "image_name": f"{repo}@{manifest['digest']}",
+                        "age_days": diff,
+                        "size_gb": image_size,
+                    },
+                    ignore_index=True,
+                )
 
     def delete_images(self):
         """Perform image deletion"""
