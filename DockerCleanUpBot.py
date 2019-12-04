@@ -63,9 +63,6 @@ class DockerCleanUpBot:
     """Clean up unused Docker images"""
 
     def __init__(self, argsDict):
-        self.images_to_be_deleted_number = 0
-        self.images_to_be_deleted_digest = []
-        self.deleted_images_total = 0
         self.aggressive = None
         self.size = None
 
@@ -95,20 +92,15 @@ class DockerCleanUpBot:
             self.aggressive = True
             self.max_age = 60
 
-        repos = self.fetch_repos()
-
         if self.aggressive:
             logging.info("Performing AGGRESSIVE clean up")
             image_df = self.get_image_sizes(repos)
             self.sort_and_delete(image_df, dry_run=self.dry_run)
 
-        self.check_manifests(repos)
+        image_df = self.check_manifests()
 
         if self.dry_run:
-            logging.info(
-                "Number of images eligible for deletion: %d"
-                % self.images_to_be_deleted_number
-            )
+            self.dry_run_sort(image_df)
         else:
             logging.info(
                 "Number of images to be deleted: %d"
@@ -196,8 +188,11 @@ class DockerCleanUpBot:
         logging.info("Total number of repositories: %d" % len(repos))
         return repos
 
-    def check_manifests(self, repos):
+    def check_manifests(self):
         """Check the manifests for each image in the repository"""
+        # Fetch image repositories
+        repos = self.fetch_repos()
+
         # Create an empty dataframe
         df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
 
@@ -284,6 +279,8 @@ class DockerCleanUpBot:
                     ignore_index=True,
                 )
 
+        return df
+
     def delete_images(self):
         """Perform image deletion"""
         for image in self.images_to_be_deleted_digest:
@@ -358,6 +355,14 @@ class DockerCleanUpBot:
             "Space saved by deleting the %d largest images: %d GB"
             % (number, freed_up_space)
         )
+
+    def dry_run_sort(self, image_df):
+        """Sort images and determine how many images COULD be deleted"""
+        image_df.sort_values("age_days", inplace=True)
+        image_df.reset_index(drop=True, inplace=True)
+        total = len(image_df.loc[image_df["age_days"] > self.max_age])
+
+        logging.info("Number of images eligible for deletion: %d" % total)
 
 
 def main():
