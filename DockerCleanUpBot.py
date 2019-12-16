@@ -36,14 +36,14 @@ def parse_args():
         "--max-age",
         type=int,
         default=90,
-        help="Maximum age of images, older images will be deleted.",
+        help="Maximum age of images in days, older images will be deleted.",
     )
     parser.add_argument(
         "-l",
         "--limit",
         type=float,
         default=2,
-        help="Maximum size the ACR is allowed to grow to in TB",
+        help="Maximum size in TB the ACR is allowed to grow to",
     )
     parser.add_argument(
         "--identity",
@@ -81,25 +81,18 @@ class DockerCleanUpBot:
 
         if self.size < (self.limit * 1000.0):
             logging.info(
-                "%s size is LESS THAN: %.2f TB. Performing STANDARD clean up operations."
-                % (self.name, self.limit)
+                "%s size is LESS THAN %.2f TB." % (self.name, self.limit)
             )
             self.aggressive = False
         else:
             logging.info(
-                "%s size is LARGER THAN: %.2f TB. Performing AGGRESSIVE clean up operations."
-                % (self.name, self.limit)
+                "%s size is LARGER THAN: %.2f TB." % (self.name, self.limit)
             )
             self.aggressive = True
 
         image_df = self.check_manifests()
 
-        if self.dry_run:
-            self.dry_run_sort(image_df)
-        elif (self.number_images_deleted > 0) & (not self.dry_run):
-            self.sort_and_delete(image_df)
-        else:
-            logging.info("PROGRAM EXITING")
+        self.sort_and_delete(image_df, dry_run=self.dry_run)
 
     def login(self):
         """Login to Azure and the ACR"""
@@ -274,55 +267,53 @@ class DockerCleanUpBot:
 
         return df
 
-    def sort_and_delete(self, image_df):
+    def sort_and_delete(self, image_df, dry_run=True):
         """Sort images and delete them"""
         freed_up_space = 0
 
         # Filtering images by age
         logging.info("Filtering images by age")
         old_image_df = image_df.loc[image_df["age_days"] >= self.max_age]
-        logging.info("Number of images to be deleted: %d" % len(old_image_df))
 
-        for image in old_image_df["image_name"]:
-            logging.info("Deleting image: %s" % image)
-            delete_cmd = [
-                "az",
-                "acr",
-                "repository",
-                "delete",
-                "-n",
-                self.name,
-                "--image",
-                image,
-                "--yes",
-            ]
+        if dry_run:
+            logging.info(
+                "Number of images eligible for deletion: %d"
+                % len(old_image_df)
+            )
+        else:
+            logging.info(
+                "Number of images to be deleted: %d" % len(old_image_df)
+            )
 
-            result = run_cmd(delete_cmd)
+            for image in old_image_df["image_name"]:
+                logging.info("Deleting image: %s" % image)
+                delete_cmd = [
+                    "az",
+                    "acr",
+                    "repository",
+                    "delete",
+                    "-n",
+                    self.name,
+                    "--image",
+                    image,
+                    "--yes",
+                ]
 
-            if result["returncode"] != 0:
-                logging.error(result["err_msg"])
-                raise AzureError(result["err_msg"])
+                result = run_cmd(delete_cmd)
 
-            logging.info("Successfully delete image: %s" % image)
+                if result["returncode"] != 0:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
 
-            freed_up_space += old_image_df["size_gb"].loc[
-                old_image_df["image_name"] == image
-            ]
+                logging.info("Successfully delete image: %s" % image)
 
-        logging.info("Space saved by deleting images: %d GB" % freed_up_space)
+                freed_up_space += old_image_df["size_gb"].loc[
+                    old_image_df["image_name"] == image
+                ]
 
-    def dry_run_sort(self, image_df):
-        """Sort images and determine how many images COULD be deleted"""
-        image_df.sort_values("age_days", inplace=True)
-        image_df.reset_index(drop=True, inplace=True)
-        self.number_images_deleted = len(
-            image_df.loc[image_df["age_days"] > self.max_age]
-        )
-
-        logging.info(
-            "Number of images eligible for deletion: %d"
-            % self.number_images_deleted
-        )
+            logging.info(
+                "Space saved by deleting images: %d GB" % freed_up_space
+            )
 
 
 def main():
