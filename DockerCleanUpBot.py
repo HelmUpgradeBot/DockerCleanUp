@@ -78,8 +78,12 @@ class DockerCleanUpBot:
         self.login()
         self.check_acr_size()
         image_df = self.check_manifests()
-        self.sort_and_delete(image_df, dry_run=self.dry_run)
+        new_image_df = self.sort_and_delete(image_df, dry_run=self.dry_run)
         self.check_acr_size()
+
+        while self.aggressive and (not self.dry_run):
+            new_image_df = self.delete_largest_image(new_image_df)
+            self.check_acr_size
 
         logging.info("PROGRAM EXITING")
 
@@ -140,12 +144,12 @@ class DockerCleanUpBot:
 
         if self.size < (self.limit * 1000.0):
             logging.info(
-                "%s size is LESS THAN %.2f TB." % (self.name, self.limit)
+                "%s size is LESS THAN %.2f TB" % (self.name, self.limit)
             )
             self.aggressive = False
         else:
             logging.info(
-                "%s size is LARGER THAN: %.2f TB." % (self.name, self.limit)
+                "%s size is LARGER THAN: %.2f TB" % (self.name, self.limit)
             )
             self.aggressive = True
 
@@ -186,6 +190,7 @@ class DockerCleanUpBot:
         logging.info("Checking repository manifests")
         for repo in repos:
             # Get the manifest for the current repository
+            logging.info("Pulling manifests for: %s" % repo)
             show_cmd = [
                 "az",
                 "acr",
@@ -203,7 +208,7 @@ class DockerCleanUpBot:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-            logging.info("Successfully pulled manifests for: %s" % repo)
+            logging.info("Successfully pulled manifests")
             outputs = (
                 result["output"]
                 .replace("\n", "")
@@ -305,8 +310,8 @@ class DockerCleanUpBot:
                     logging.error(result["err_msg"])
                     raise AzureError(result["err_msg"])
 
-                logging.info("Successfully delete image: %s" % image)
-
+                logging.info("Successfully deleted image: %s" % image)
+                image_df.drop(image, inplace=True)
                 freed_up_space += old_image_df["size_gb"].loc[
                     old_image_df["image_name"] == image
                 ]
@@ -314,6 +319,40 @@ class DockerCleanUpBot:
             logging.info(
                 "Space saved by deleting images: %d GB" % freed_up_space
             )
+
+        image_df.reset_index(drop=True, inplace=True)
+        return image_df
+
+    def delete_largest_image(self, df):
+        """Delete largest image"""
+        df.sort_values("size_gb", ascending=False, inplace=True)
+        df.reset_index(inplace=True, drop=True)
+        image_to_be_deleted = df["image_name"].iloc[0]
+        logging.info("Largest image to be deleted: %s" % image_to_be_deleted)
+
+        delete_cmd = [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            self.name,
+            "--image",
+            image_to_be_deleted,
+            "--yes",
+        ]
+
+        result = run_cmd(delete_cmd)
+
+        if result["returncode"] != 0:
+            logging.error(result["err_msg"])
+            raise AzureError(result["err_msg"])
+
+        logging.info("Successfully deleted image: %s" % image_to_be_deleted)
+        df.drop(image_to_be_deleted, inplace=True)
+        df.reset_index(inplace=True, drop=True)
+
+        return df
 
 
 def main():
