@@ -36,14 +36,14 @@ def parse_args():
         "--max-age",
         type=int,
         default=90,
-        help="Maximum age of images, older images will be deleted.",
+        help="Maximum age of images in days, older images will be deleted.",
     )
     parser.add_argument(
         "-l",
         "--limit",
         type=float,
         default=2,
-        help="Maximum size the ACR is allowed to grow to in TB",
+        help="Maximum size in TB the ACR is allowed to grow to",
     )
     parser.add_argument(
         "--identity",
@@ -63,9 +63,6 @@ class DockerCleanUpBot:
     """Clean up unused Docker images"""
 
     def __init__(self, argsDict):
-        self.images_to_be_deleted_number = 0
-        self.images_to_be_deleted_digest = []
-        self.deleted_images_total = 0
         self.aggressive = None
         self.size = None
 
@@ -80,41 +77,15 @@ class DockerCleanUpBot:
 
         self.login()
         self.check_acr_size()
+        image_df = self.check_manifests()
+        new_image_df = self.sort_and_delete(image_df, dry_run=self.dry_run)
+        self.check_acr_size()
 
-        if self.size < (self.limit * 1000.0):
-            logging.info(
-                "%s size is LESS THAN: %.2f TB. Performing STANDARD clean up operations."
-                % (self.name, self.limit)
-            )
-            self.aggressive = False
-        else:
-            logging.info(
-                "%s size is LARGER THAN: %.2f TB. Performing AGGRESSIVE clean up operations."
-                % (self.name, self.limit)
-            )
-            self.aggressive = True
-            self.max_age = 60
+        while self.aggressive and (not self.dry_run):
+            new_image_df = self.delete_largest_image(new_image_df)
+            self.check_acr_size
 
-        repos = self.fetch_repos()
-
-        if self.aggressive:
-            logging.info("Performing AGGRESSIVE clean up")
-            image_df = self.get_image_sizes(repos)
-            self.sort_and_delete(image_df, dry_run=self.dry_run)
-
-        self.check_manifests(repos)
-
-        if self.dry_run:
-            logging.info(
-                "Number of images eligible for deletion: %d"
-                % self.images_to_be_deleted_number
-            )
-        else:
-            logging.info(
-                "Number of images to be deleted: %d"
-                % self.images_to_be_deleted_number
-            )
-            self.delete_images()
+        logging.info("PROGRAM EXITING")
 
     def login(self):
         """Login to Azure and the ACR"""
@@ -171,6 +142,17 @@ class DockerCleanUpBot:
         self.size = int(result["output"]) * 1.0e-9
         logging.info("Size of %s: %.2f GB" % (self.name, self.size))
 
+        if self.size < (self.limit * 1000.0):
+            logging.info(
+                "%s size is LESS THAN %.2f TB" % (self.name, self.limit)
+            )
+            self.aggressive = False
+        else:
+            logging.info(
+                "%s size is LARGER THAN: %.2f TB" % (self.name, self.limit)
+            )
+            self.aggressive = True
+
     def fetch_repos(self):
         """Get the repositories in the ACR"""
         logging.info("Fetching repositories in: %s" % self.name)
@@ -196,12 +178,19 @@ class DockerCleanUpBot:
         logging.info("Total number of repositories: %d" % len(repos))
         return repos
 
-    def check_manifests(self, repos):
+    def check_manifests(self):
         """Check the manifests for each image in the repository"""
+        # Fetch image repositories
+        repos = self.fetch_repos()
+
+        # Create an empty dataframe
+        df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
+
         # Loop over the repositories
         logging.info("Checking repository manifests")
         for repo in repos:
             # Get the manifest for the current repository
+            logging.info("Pulling manifests for: %s" % repo)
             show_cmd = [
                 "az",
                 "acr",
@@ -219,7 +208,7 @@ class DockerCleanUpBot:
                 logging.error(result["err_msg"])
                 raise AzureError(result["err_msg"])
 
-            logging.info("Successfully pulled manifests for: %s" % repo)
+            logging.info("Successfully pulled manifests")
             outputs = (
                 result["output"]
                 .replace("\n", "")
@@ -247,88 +236,6 @@ class DockerCleanUpBot:
                     "%s@%s is %d days old." % (repo, manifest["digest"], diff)
                 )
 
-                # If an image is too old, add it to delete list
-                if diff >= self.max_age:
-                    self.images_to_be_deleted_digest.append(
-                        "%s@%s" % (repo, manifest["digest"])
-                    )
-                    self.images_to_be_deleted_number += 1
-
-    def delete_images(self):
-        """Perform image deletion"""
-        for image in self.images_to_be_deleted_digest:
-            logging.info("Deleting image: %s" % image)
-            del_cmd = [
-                "az",
-                "acr",
-                "repository",
-                "delete",
-                "-n",
-                self.name,
-                "--image",
-                image,
-                "--yes",
-            ]
-
-            result = run_cmd(del_cmd)
-
-            if result["returncode"] != 0:
-                logging.error(result["err_msg"])
-                raise AzureError(result["err_msg"])
-
-            logging.info("Successfully deleted image: %s" % image)
-            self.deleted_images_total += 1
-
-        logging.info(
-            "Number of images deleted: %d" % self.deleted_images_total
-        )
-
-    def get_image_sizes(self, repos):
-        """Get a dataframe with the sizes of all Docker images"""
-        logging.info("Collating image sizes")
-        image_df = pd.DataFrame(columns=["image", "size"])
-        image_number = 0
-
-        # Loop over the repositories
-        logging.info("Checking repository manifests")
-        for repo in repos:
-            # Get the manifest for the current repository
-            show_cmd = [
-                "az",
-                "acr",
-                "repository",
-                "show-manifests",
-                "-n",
-                self.name,
-                "--repository",
-                repo,
-            ]
-
-            result = run_cmd(show_cmd)
-
-            if result["returncode"] != 0:
-                logging.error(result["err_msg"])
-                raise AzureError(result["err_msg"])
-
-            logging.info("Successfully pulled manifests for: %s" % repo)
-            outputs = (
-                result["output"]
-                .replace("\n", "")
-                .replace(" ", "")[1:-1]
-                .split("},")
-            )
-            logging.info(
-                "Total number of manifests in %s: %d" % (repo, len(outputs))
-            )
-
-            # Loop over the manifests for each repository
-            for j, output in enumerate(outputs):
-                if j < (len(outputs) - 1):
-                    output += "}"
-
-                # Convert the manifest to a dict and extract timestamp
-                manifest = json.loads(output)
-
                 # Check the size of each image
                 image_size_cmd = [
                     "az",
@@ -352,63 +259,100 @@ class DockerCleanUpBot:
                     raise AzureError(result["err_msg"])
 
                 image_size = int(result["output"]) * 1.0e-9
-                image_df.loc[image_number] = [
-                    f"{repo}@{manifest['digest']}",
-                    image_size,
-                ]
-                image_number += 1
-                logging.info(
-                    "Size of image %s@%s: %.2f GB"
-                    % (repo, manifest["digest"], image_size)
+
+                # Append to dataframe
+                df = df.append(
+                    {
+                        "image_name": f"{repo}@{manifest['digest']}",
+                        "age_days": diff,
+                        "size_gb": image_size,
+                    },
+                    ignore_index=True,
                 )
 
-        return image_df
+        return df
 
-    def sort_and_delete(self, image_df, number=25, dry_run=True):
+    def sort_and_delete(self, image_df, dry_run=True):
         """Sort images and delete them"""
         freed_up_space = 0
 
-        logging.info("Sorting images by descending size")
-        image_df.sort_values("size", ascending=False, inplace=True)
+        # Filtering images by age
+        logging.info("Filtering images by age")
+        old_image_df = image_df.loc[image_df["age_days"] >= self.max_age]
+
+        if dry_run:
+            logging.info(
+                "Number of images eligible for deletion: %d"
+                % len(old_image_df)
+            )
+        else:
+            logging.info(
+                "Number of images to be deleted: %d" % len(old_image_df)
+            )
+
+            for image in old_image_df["image_name"]:
+                logging.info("Deleting image: %s" % image)
+                delete_cmd = [
+                    "az",
+                    "acr",
+                    "repository",
+                    "delete",
+                    "-n",
+                    self.name,
+                    "--image",
+                    image,
+                    "--yes",
+                ]
+
+                result = run_cmd(delete_cmd)
+
+                if result["returncode"] != 0:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
+
+                logging.info("Successfully deleted image: %s" % image)
+                image_df.drop(image, inplace=True)
+                freed_up_space += old_image_df["size_gb"].loc[
+                    old_image_df["image_name"] == image
+                ]
+
+            logging.info(
+                "Space saved by deleting images: %d GB" % freed_up_space
+            )
+
         image_df.reset_index(drop=True, inplace=True)
+        return image_df
 
-        if len(image_df) < number:
-            number = len(image_df)
+    def delete_largest_image(self, df):
+        """Delete largest image"""
+        df.sort_values("size_gb", ascending=False, inplace=True)
+        df.reset_index(inplace=True, drop=True)
+        image_to_be_deleted = df["image_name"].iloc[0]
+        logging.info("Largest image to be deleted: %s" % image_to_be_deleted)
 
-        for i, row in image_df.iterrows():
-            if i < number:
-                freed_up_space += row["size"]
+        delete_cmd = [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            self.name,
+            "--image",
+            image_to_be_deleted,
+            "--yes",
+        ]
 
-                if not dry_run:
-                    logging.info("Deleting image: %s" % row["image"])
-                    delete_cmd = [
-                        "az",
-                        "acr",
-                        "repository",
-                        "delete",
-                        "-n",
-                        self.name,
-                        "--image",
-                        f"{row['image']}",
-                        "--yes",
-                    ]
+        result = run_cmd(delete_cmd)
 
-                    result = run_cmd(delete_cmd)
+        if result["returncode"] != 0:
+            logging.error(result["err_msg"])
+            raise AzureError(result["err_msg"])
 
-                    if result["returncode"] != 0:
-                        logging.error(result["err_msg"])
-                        raise AzureError(result["err_msg"])
+        logging.info("Successfully deleted image: %s" % image_to_be_deleted)
+        df.drop(image_to_be_deleted, inplace=True)
+        df.reset_index(inplace=True, drop=True)
 
-                    logging.info(
-                        "Successfully delete image: %s" % row["image"]
-                    )
-            else:
-                break
-
-        logging.info(
-            "Space saved by deleting the %d largest images: %d GB"
-            % (number, freed_up_space)
-        )
+        return df
 
 
 def main():
