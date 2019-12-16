@@ -63,7 +63,6 @@ class DockerCleanUpBot:
     """Clean up unused Docker images"""
 
     def __init__(self, argsDict):
-        self.number_images_deleted = 0
         self.aggressive = None
         self.size = None
 
@@ -78,21 +77,11 @@ class DockerCleanUpBot:
 
         self.login()
         self.check_acr_size()
-
-        if self.size < (self.limit * 1000.0):
-            logging.info(
-                "%s size is LESS THAN %.2f TB." % (self.name, self.limit)
-            )
-            self.aggressive = False
-        else:
-            logging.info(
-                "%s size is LARGER THAN: %.2f TB." % (self.name, self.limit)
-            )
-            self.aggressive = True
-
         image_df = self.check_manifests()
-
         self.sort_and_delete(image_df, dry_run=self.dry_run)
+        self.check_acr_size()
+
+        logging.info("PROGRAM EXITING")
 
     def login(self):
         """Login to Azure and the ACR"""
@@ -148,6 +137,17 @@ class DockerCleanUpBot:
 
         self.size = int(result["output"]) * 1.0e-9
         logging.info("Size of %s: %.2f GB" % (self.name, self.size))
+
+        if self.size < (self.limit * 1000.0):
+            logging.info(
+                "%s size is LESS THAN %.2f TB." % (self.name, self.limit)
+            )
+            self.aggressive = False
+        else:
+            logging.info(
+                "%s size is LARGER THAN: %.2f TB." % (self.name, self.limit)
+            )
+            self.aggressive = True
 
     def fetch_repos(self):
         """Get the repositories in the ACR"""
