@@ -5,10 +5,10 @@ It also checks that the ACR hasn't grown above a certain memory limit.
 
 - [Overview](#overview)
 - [Assumptions DockerCleanUp Makes](#assumptions-dockercleanupbot-makes)
-- [Usage](#usage)
+- [Requirements](#requirements)
   - [Installing Azure CLI](#installing-azure-cli)
   - [Installing Docker CLI (on Linux)](#installing-docker-cli-on-linux)
-- [Requirements](#requirements)
+- [Usage](#usage)
 - [CRON Expression](#cron-expression)
 - [Pre-commit Hook](#pre-commit-hook)
 
@@ -18,17 +18,42 @@ It also checks that the ACR hasn't grown above a certain memory limit.
 
 This is an overview of the steps the bot executes.
 
-- Login into the requested ACR via the Azure CLI
-- Check the size of the ACR
-  - If the ACR size is above a given limit, perfom an "aggressive" clean up.
-    This is where the 25 (default setting) largest images in the ACR are deleted in order to reduce running costs.
-- Fetch the repositories in the ACR
-- Check the manifests for each repository and log the digests of those that are 90 days old or more
-- If it's not a dry-run, delete all the logged digests
+- Logs in to Azure using **either** a Managed System Identity **or** interactive login (configurable with a command line flag)
+- Logs in to the requested ACR via the Azure CLI and Docker daemon
+- Checks the size of the ACR and compares it to a requested size limit (configurable with a command line flag)
+- Fetches the repositories and manifests for the images in the ACR and saves them in a pandas dataframe
+- Filters out image digests that are older than the requested age limit (configurable with a command line flag) and deletes them
+- Rechecks the size of the ACR
+  - If the ACR is still larger than the requested size limit, the bot then executes a loop to delete the largest remaining image until the ACR is below the size limit
 
 ## Assumptions DockerCleanUpBot Makes
 
 To login to Azure, the bot assumes it's being run from a resource (for example, a Virtual Machine) with a [Managed System Identity](https://docs.microsoft.com/en-gb/azure/active-directory/managed-identities-azure-resources/overview) that has enough permissions ([Reader and AcrDelete](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-roles) at least) to access the ACR and delete images.
+
+## Requirements
+
+The bot requires Python v3.7 and the `pandas` package listed in [`requirements.txt`](./requirements.txt), which can be installed using `pip`:
+
+```bash
+pip install -r requirements.txt
+```
+
+The bot will need access to the [Microsoft Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) and the [Docker CLI](https://docs-stage.docker.com/v17.12/install/) in order to query the ACR.
+
+### Installing Azure CLI (on Linux)
+
+```bash
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+See the [Microsoft Azure CLI Installation docs](https://docs.microsoft.com/en-gb/cli/azure/install-azure-cli?view=azure-cli-latest) for more installation options.
+
+### Installing Docker CLI (on Linux)
+
+```bash
+sudo apt install docker.io -y
+sudo usermod -a -G docker $USER
+```
 
 ## Usage
 
@@ -51,28 +76,7 @@ where:
 - `--identity` is a Boolean flag allowing the resource to login to Azure with a Managed System Identity; and
 - `--dry-run` is a Boolean flag that prevents the images from actually being deleted.
 
-## Requirements
-
-The bot requires Python v3.7 and the `pandas` package listed in [`requirements.txt`](./requirements.txt), which can be installed using `pip`:
-
-```bash
-pip install -r requirements.txt
-```
-
-The bot will need access to the [Microsoft Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) and the [Docker CLI](https://docs-stage.docker.com/v17.12/install/) in order to query the ACR.
-
-### Installing Azure CLI
-
-```bash
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
-
-### Installing Docker CLI (on Linux)
-
-```bash
-sudo apt install docker.io -y
-sudo usermod -a -G docker $USER
-```
+The script will generate a log file (`DockerCleanUpBot.log`) with the output of the actions.
 
 ## CRON expression
 
