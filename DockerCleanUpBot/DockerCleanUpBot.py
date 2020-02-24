@@ -289,7 +289,7 @@ class DockerCleanUpBot:
         logging.info("Successfully logged into Azure")
 
         # Login to ACR
-        logging.info("Login to ACR")
+        logging.info("Login to ACR: %s" % self.name)
         acr_cmd = ["az", "acr", "login", "-n", self.name]
 
         result = run_cmd(acr_cmd)
@@ -298,7 +298,7 @@ class DockerCleanUpBot:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
 
-        logging.info("Successfully logged into ACR: %s" % self.name)
+        logging.info("Successfully logged into ACR")
 
     def sort_and_delete(self, image_df, dry_run=True):
         """Sorts images by age and deletes the oldest ones
