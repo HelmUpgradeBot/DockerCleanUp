@@ -30,12 +30,15 @@ This is an overview of the steps the bot executes.
 
 To login to Azure, the bot assumes it's being run from a resource (for example, a Virtual Machine) with a [Managed System Identity](https://docs.microsoft.com/en-gb/azure/active-directory/managed-identities-azure-resources/overview) that has enough permissions ([Reader and AcrDelete](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-roles) at least) to access the ACR and delete images.
 
-## Requirements
+## Installation and Requirements
 
-The bot requires Python v3.7 and the `pandas` package listed in [`requirements.txt`](./requirements.txt), which can be installed using `pip`:
+To install this bot, you'll need to clone this repo and install the package.
+It requires Python version >=3.7.
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/HelmUpgradeBot/DockerCleanUp.git
+cd DockerCleanUp
+python setup.py install
 ```
 
 The bot will need access to the [Microsoft Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) and the [Docker CLI](https://docs-stage.docker.com/v17.12/install/) in order to query the ACR.
@@ -60,8 +63,7 @@ sudo usermod -a -G docker $USER
 Run the bot with the following command:
 
 ```bash
-python DockerCleanUpBot.py \
-    --name [-n] ACR_NAME \
+DockerCleanUpBot ACR_NAME \
     --max-age [-a] AGE \
     --limit [-l] SIZE_LIMIT \
     --identity \
@@ -83,7 +85,7 @@ The script will generate a log file (`DockerCleanUpBot.log`) with the output of 
 To run this script at midnight on the first day of every month, use the following cron expression:
 
 ```bash
-0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python DockerCleanUpBot.py [--flags]
+0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python setup.py install &&DockerCleanUpBot.py [--flags]
 ```
 
 ## Pre-commit Hook
