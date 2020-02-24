@@ -85,7 +85,7 @@ The script will generate a log file (`DockerCleanUpBot.log`) with the output of 
 To run this script at midnight on the first day of every month, use the following cron expression:
 
 ```bash
-0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python DockerCleanUpBot.py [--flags]
+0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python setup.py install &&DockerCleanUpBot.py [--flags]
 ```
 
 ## Pre-commit Hook
