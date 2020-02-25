@@ -20,7 +20,7 @@ def run_cmd(cmd):
     output = proc.communicate()
 
     result["returncode"] = proc.returncode
-    result["output"] = output[0].decode(encoding="utf-8")
-    result["err_msg"] = output[1].decode(encoding="utf-8")
+    result["output"] = output[0].decode(encoding="utf-8").strip("\n")
+    result["err_msg"] = output[1].decode(encoding="utf-8").strip("\n")
 
     return result
