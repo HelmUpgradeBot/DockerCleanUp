@@ -40,7 +40,6 @@ class DockerCleanUpBot:
 
         if self.purge or self.aggressive:
             self.purge_all(image_df, dry_run=self.dry_run)
-            self.check_acr_size()
 
         else:
             if self.ci is not None:
@@ -49,8 +48,8 @@ class DockerCleanUpBot:
                 )
 
             image_df = self.sort_and_delete(image_df, dry_run=self.dry_run)
-            self.check_acr_size()
 
+        self.check_acr_size()
         logging.info("PROGRAM EXITING")
 
     def check_acr_size(self):
