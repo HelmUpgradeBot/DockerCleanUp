@@ -66,8 +66,10 @@ Run the bot with the following command:
 DockerCleanUpBot ACR_NAME \
     --max-age [-a] AGE \
     --limit [-l] SIZE_LIMIT \
+    --ci CI_IMAGES \
     --identity \
-    --dry-run
+    --dry-run \
+    --purge
 ```
 
 where:
@@ -75,8 +77,10 @@ where:
 - `ACR_NAME` (string) is the name of the ACR to be cleaned;
 - `AGE` (integer, default = 90) is the maximum age in days for images in the ACR;
 - `SIZE_LIMIT` (float, default = 2.0) is the maximum size in TB that the ACR is permitted to grow to;
+- `CI_IMAGES` is a list of image names that have been built by Continuous Integration;
 - `--identity` is a Boolean flag allowing the resource to login to Azure with a Managed System Identity; and
-- `--dry-run` is a Boolean flag that prevents the images from actually being deleted.
+- `--dry-run` is a Boolean flag that prevents the images from actually being deleted;
+- `--purge` is a Boolean flag that will delete all images in the Container Registry.
 
 The script will generate a log file (`DockerCleanUpBot.log`) with the output of the actions.
 
