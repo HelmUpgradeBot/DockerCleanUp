@@ -38,17 +38,18 @@ class DockerCleanUpBot:
         self.check_acr_size()
         image_df = self.check_manifests()
 
-        if self.ci is not None:
-            image_df = self.delete_ci_images(
-                image_df, self.ci, dry_run=self.dry_run
-            )
+        if self.purge or self.aggressive:
+            self.purge_all(image_df, dry_run=self.dry_run)
+            self.check_acr_size()
 
-        image_df = self.sort_and_delete(image_df, dry_run=self.dry_run)
-        self.check_acr_size()
+        else:
+            if self.ci is not None:
+                image_df = self.delete_ci_images(
+                    image_df, self.ci, dry_run=self.dry_run
+                )
 
-        while self.aggressive and (not self.dry_run):
-            image_df = self.delete_largest_image(image_df)
-            self.check_acr_size
+            image_df = self.sort_and_delete(image_df, dry_run=self.dry_run)
+            self.check_acr_size()
 
         logging.info("PROGRAM EXITING")
 
@@ -213,42 +214,6 @@ class DockerCleanUpBot:
 
         return df
 
-    def delete_largest_image(self, df):
-        """Delete the largest image in a DataFrame
-
-        Arguments:
-            df {pd.DataFrame} -- DataFrame containing info on images in the
-                                 Container Registry
-        """
-        df.sort_values("size_gb", ascending=False, inplace=True)
-        df.reset_index(inplace=True, drop=True)
-        image_to_be_deleted = df["image_name"].iloc[0]
-        logging.info("Largest image to be deleted: %s" % image_to_be_deleted)
-
-        delete_cmd = [
-            "az",
-            "acr",
-            "repository",
-            "delete",
-            "-n",
-            self.name,
-            "--image",
-            image_to_be_deleted,
-            "--yes",
-        ]
-
-        result = run_cmd(delete_cmd)
-
-        if result["returncode"] != 0:
-            logging.error(result["err_msg"])
-            raise AzureError(result["err_msg"])
-
-        logging.info("Successfully deleted image: %s" % image_to_be_deleted)
-        df.drop(image_to_be_deleted, inplace=True)
-        df.reset_index(inplace=True, drop=True)
-
-        return df
-
     def fetch_repos(self):
         """Get the repositories in the ACR"""
         logging.info("Fetching repositories in: %s" % self.name)
@@ -305,6 +270,40 @@ class DockerCleanUpBot:
         else:
             logging.error(result["err_msg"])
             raise AzureError(result["err_msg"])
+
+    def purge_all(self, df, dry_run=True):
+        """Purges all images in a Container Registry
+
+        Arguments:
+            df {pd.DataFrame} -- DataFrame containing info about the images in
+                                 the container registry
+
+        Keyword Arguments:
+            dry_run {bool} -- Whether images should be deleted (default: {True})
+        """
+        if not dry_run:
+            for image in df["image_name"]:
+                logging.info("Deleting image: % s" % image)
+
+                delete_cmd = [
+                    "az",
+                    "acr",
+                    "repository",
+                    "delete",
+                    "-n",
+                    self.name,
+                    "--image",
+                    image,
+                    "--yes",
+                ]
+
+                result = run_cmd(delete_cmd)
+
+                if result["returncode"] != 0:
+                    logging.error(result["err_msg"])
+                    raise AzureError(result["err_msg"])
+
+                logging.info("Image successfully deleted")
 
     def sort_and_delete(self, image_df, dry_run=True):
         """Sorts images by age and deletes the oldest ones
