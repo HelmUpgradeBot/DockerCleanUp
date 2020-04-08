@@ -26,6 +26,12 @@ parser.add_argument(
     default=2.0,
     help="Maximum size in TB the ACR is allowed to grow to. Default: 2 TB.",
 )
+parser.add_argument(
+    "--ci",
+    nargs="+",
+    default=None,
+    help="List of images built by CI to be deleted",
+)
 
 parser.add_argument(
     "--identity",
