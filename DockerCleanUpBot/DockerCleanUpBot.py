@@ -31,6 +31,8 @@ class DockerCleanUpBot:
         """Perform image deletion"""
         if self.dry_run:
             logging.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
+        if self.purge:
+            logging.info("ALL IMAGES WILL BE PURGED")
 
         self.login()
         self.check_acr_size()
