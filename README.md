@@ -1,6 +1,6 @@
 # DockerCleanUp
 
-[![License](https://img.shields.io/github/license/HelmUpgradeBot/DockerCleanUp)](LICENSE) [![Code of Conduct](https://img.shields.io/badge/Code%20of-Conduct-blueviolet)](CODE_OF_CONDUCT.md) [![Contributing Guidelines](https://img.shields.io/badge/Contributing-Guidelines-blueviolet)](CONTRIBUTING.md) ![Good first issue](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/good%20first%20issue) ![Help wanted](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/help%20wanted)
+[![License](https://img.shields.io/github/license/HelmUpgradeBot/DockerCleanUp)](LICENSE) [![Code of Conduct](https://img.shields.io/badge/Code%20of-Conduct-blueviolet)](CODE_OF_CONDUCT.md) [![Contributing Guidelines](https://img.shields.io/badge/Contributing-Guidelines-blueviolet)](CONTRIBUTING.md) [![Good first issue](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/good%20first%20issue)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/good%20first%20issue) [![Help wanted](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/help%20wanted)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/help%20wanted)
 
 This is an automatable bot to clean up Docker images stored in an [Azure Container Registry (ACR)](https://docs.microsoft.com/en-us/azure/container-registry/) that are 90 days old or more.
 It also checks that the ACR hasn't grown above a certain memory limit.

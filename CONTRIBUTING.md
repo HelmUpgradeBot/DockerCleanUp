@@ -6,7 +6,7 @@ The following is a set of guidelines for contributing to the project on GitHub.
 These are mostly guidelines, not rules.
 Use your best judgement and feel free to propose changes to this document in a Pull Request.
 
-**Table of Contents**
+**Table of Contents:**
 
 - [:purple_heart: Code of Conduct](#purple_heart-code-of-conduct)
 - [:question: What should I know before I get started?](#question-what-should-i-know-before-i-get-started)
@@ -57,7 +57,7 @@ This repository has a [feature request template](.github/ISSUE_TEMPLATE/feature_
 ### :hatching_chick: Your First Contribution
 
 Unsure where to start contributing?
-Check out the good first issue and help wanted labels to see where the project is looking for input.
+Check out the [![good first issue](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/good%20first%20issue)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/good%20first%20issue) and [![help wanted](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/help%20wanted)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/help%20wanted) labels to see where the project is looking for input.
 
 ### :arrow_right: Pull Requests
 
@@ -110,8 +110,8 @@ Below is a table with the currently used labels in the repo.
 
 | Label | Description |
 | :--- | :--- |
-| `bug` | Something isn't working |
-| `documentation` | Improvements or additions to the documentation |
-| `enhancement` | New feature or request |
-| `good first issue` | Good for newcomers |
-| `help wanted` | Extra attention is needed |
+| [![bug](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/bug)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/bug) | Something isn't working |
+| [![documentation](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/documentation)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/documentation) | Improvements or additions to the documentation |
+| [![enhancement](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/enhancement)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/enhancement) | New feature or request |
+| [![good first issue](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/good%20first%20issue)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/good%20first%20issue) | Good for newcomers |
+| [![help wanted](https://img.shields.io/github/labels/HelmUpgradeBot/DockerCleanUp/help%20wanted)](https://github.com/HelmUpgradeBot/DockerCleanUp/labels/help%20wanted) | Extra attention is needed |
