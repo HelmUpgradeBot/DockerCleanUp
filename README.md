@@ -98,6 +98,6 @@ For developing the bot, a pre-commit hook can be installed which will apply [bla
 To install the hook, run the following:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -r dev-requirements.txt
 pre-commit install
 ```
