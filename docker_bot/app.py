@@ -11,7 +11,7 @@ def check_acr_size(name: str, limit: float):
 
     Args:
         name (str): The name of the ACR to be checked
-        limit (float): The user-defined size limit of the ACR
+        limit (float): The user-defined size limit of the ACR in TB
 
     Returns:
         size (float): The size of the ACR in GB
@@ -45,8 +45,6 @@ def check_acr_size(name: str, limit: float):
     elif size >= (limit * 1.0e3):
         logger.info("%s is LARGER THAN %.2f TB" % (name, limit))
         aggressive = True
-    else:
-        raise ValueError()
 
     return size, aggressive
 
