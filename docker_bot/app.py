@@ -19,7 +19,17 @@ def check_acr_size(name: str, limit: float):
     """
     logger.info("Checking the size of ACR: %s" % name)
 
-    size_cmd = ["az", "acr", "show-usage", "-n", name, "--query", "{}".format("value[?name=='Size'].currentValue"), "-o", "tsv"]
+    size_cmd = [
+        "az",
+        "acr",
+        "show-usage",
+        "-n",
+        name,
+        "--query",
+        "{}".format("value[?name=='Size'].currentValue"),
+        "-o",
+        "tsv",
+    ]
     result = run_cmd(size_cmd)
 
     if result["returncode"] != 0:
@@ -40,3 +50,11 @@ def check_acr_size(name: str, limit: float):
 
     return size, aggressive
 
+
+# def run(dry_run: bool = False, purge: bool = False):
+#     if dry_run:
+#         logger.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
+#     if purge:
+#         logger.info("ALL IMAGES WILL BE PURGED")
+
+#     logger.info("PROGRAM EXITING")
