@@ -11,7 +11,7 @@ DESCRIPTION = (
 EMAIL = "drsarahlgibson@gmail.com"
 LICENSE = "MIT"
 LICENSE_TROVE = "License :: OSI Approved :: MIT License"
-NAME = "DockerCleanUpBot"
+NAME = "docker-bot"
 REQUIRES_PYTHON = ">=3.7.0"
 URL = "https://github.com/HelmUpgradeBot/DockerCleanUp"
 VERSION = None
