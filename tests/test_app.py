@@ -57,14 +57,21 @@ def test_check_acr_size_greater_than(mock_args):
             "tsv",
         ]
     )
-    assert mock_args.return_value == {"returncode": 0, "output": 5000000000000.0}
+    assert mock_args.return_value == {
+        "returncode": 0,
+        "output": 5000000000000.0,
+    }
     assert out[0] == 5000.0
     assert out[1]
 
 
 @patch(
     "docker_bot.app.run_cmd",
-    return_value={"returncode": 1, "output": "", "err_msg": "Could not run command"},
+    return_value={
+        "returncode": 1,
+        "output": "",
+        "err_msg": "Could not run command",
+    },
 )
 def test_check_acr_size_exception(mock_args):
     name = "test_acr"
@@ -87,4 +94,8 @@ def test_check_acr_size_exception(mock_args):
                 "tsv",
             ]
         )
-        assert mock.return_value == {"returncode": 1, "output": "", "err_msg": "Could not run command"}
+        assert mock.return_value == {
+            "returncode": 1,
+            "output": "",
+            "err_msg": "Could not run command",
+        }
