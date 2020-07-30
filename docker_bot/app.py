@@ -48,11 +48,3 @@ def check_acr_size(name: str, limit: float):
 
     return size, aggressive
 
-
-# def run(dry_run: bool = False, purge: bool = False):
-#     if dry_run:
-#         logger.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
-#     if purge:
-#         logger.info("ALL IMAGES WILL BE PURGED")
-
-#     logger.info("PROGRAM EXITING")
