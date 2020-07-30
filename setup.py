@@ -5,9 +5,7 @@ from setuptools import find_packages, setup
 
 # Package meta-data.
 AUTHOR = "Sarah Gibson"
-DESCRIPTION = (
-    "A Python package for cleaning out old images in an Azure Container Registry"  # noqa: E501
-)
+DESCRIPTION = "A Python package for cleaning out old images in an Azure Container Registry"  # noqa: E501
 EMAIL = "drsarahlgibson@gmail.com"
 LICENSE = "MIT"
 LICENSE_TROVE = "License :: OSI Approved :: MIT License"
