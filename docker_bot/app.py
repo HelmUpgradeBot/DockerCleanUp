@@ -84,3 +84,48 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
     logger.info("Total number of manifests in %s: %d" % (repo, len(manifests)))
 
     return manifests
+
+
+def pull_image_size(
+    acr_name: str, repo: str, manifest: dict
+) -> Tuple[str, int, float]:
+    """Get the size of an image in an Azure Container Registry
+
+    Args:
+        acr_name (str): Name of the ACR
+        repo (str): Image repository
+        manifest (dict): Image manifest
+
+    Returns:
+        image_name (str): Name of the image -> repo@digest
+        age_days (int): Age of the image in days
+        size_gb (float): Size of the image in GB
+    """
+    # Get the time difference between now and the manifest timestamp in days
+    timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
+    diff = (pd.Timestamp.now() - timestamp).days
+    logger.info("%s@%s is %d days old" % (repo, manifest, diff))
+
+    # Check the size of the image
+    image_size_cmd = [
+        "az",
+        "acr",
+        "repository",
+        "show",
+        "-n",
+        acr_name,
+        "--imag",
+        f"{repo}@{manifest['digest']}",
+        "--query",
+        "imageSize",
+        "-o",
+        "tsv",
+    ]
+
+    result = run_cmd(image_size_cmd)
+
+    if result["returncode"] != 0:
+        logger.error(result["err_msg"])
+        raise RuntimeError(result["err_msg"])
+
+    return f"{repo}@{manifest['digest']}", diff, int(result["output"]) * 1.0e-9
