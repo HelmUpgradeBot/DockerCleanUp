@@ -1,13 +1,13 @@
 import json
 import logging
 import pandas as pd
-from typing import Iterable
+from typing import Tuple
 from .helper_functions import run_cmd
 
 logger = logging.getLogger()
 
 
-def check_acr_size(acr_name: str, limit: float) -> Iterable(float, bool):
+def check_acr_size(acr_name: str, limit: float) -> Tuple[float, bool]:
     """Check the size of an Azure Container Registry against a user-defined
     limit
 
@@ -48,10 +48,10 @@ def check_acr_size(acr_name: str, limit: float) -> Iterable(float, bool):
         logger.info("%s is LARGER THAN %.2f TB" % (acr_name, limit))
         aggressive = True
 
-    return (size, aggressive)
+    return size, aggressive
 
 
-def pull_manifest(acr_name: str, repo: str) -> Iterable(dict):
+def pull_manifests(acr_name: str, repo: str) -> dict:
     """Return image manifests for a repository in an Azure Container Registry
 
     Args:
