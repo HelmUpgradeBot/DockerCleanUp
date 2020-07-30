@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import call, patch
 
-from docker_bot.app import check_acr_size
+from docker_bot.app import check_acr_size, pull_manifests
 
 
 @patch(
@@ -99,3 +99,74 @@ def test_check_acr_size_exception(mock_args):
             "output": "",
             "err_msg": "Could not run command",
         }
+
+
+@patch(
+    "docker_bot.app.run_cmd",
+    return_value={
+        "returncode": 0,
+        "output": '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "digest": "digest_image2"}]',
+    },
+)
+def test_pull_manifests(mock_args):
+    acr_name = "test_acr"
+    repo = "test_repo"
+
+    out = pull_manifests(acr_name, repo)
+
+    mock_args.assert_called_once()
+    mock_args.assert_called_once_with(
+        [
+            "az",
+            "acr",
+            "repository",
+            "show-manifests",
+            "-n",
+            acr_name,
+            "--repository",
+            repo,
+        ]
+    )
+    assert mock_args.return_value["returncode"] == 0
+    assert (
+        mock_args.return_value["output"]
+        == '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "digest": "digest_image2"}]'
+    )
+    assert out == [
+        {
+            "timestamp": "2020-07-30T19:56:00.0000000Z",
+            "digest": "digest_image1",
+        },
+        {
+            "timestamp": "2020-07-29T19:57:00.0000000Z",
+            "digest": "digest_image2",
+        },
+    ]
+
+
+@patch(
+    "docker_bot.app.run_cmd",
+    return_value={"returncode": 1, "err_msg": "Could not run command"},
+)
+def test_pull_manifests_exception(mock_args):
+    acr_name = "test_acr"
+    repo = "test_repo"
+
+    with mock_args as mock, pytest.raises(RuntimeError):
+        pull_manifests(acr_name, repo)
+
+        mock.assert_called_once()
+        mock.assert_called_once_with(
+            [
+                "az",
+                "acr",
+                "repository",
+                "show-manifests",
+                "-n",
+                acr_name,
+                "--repository",
+                repo,
+            ]
+        )
+        assert mock.return_value["returncode"] == 1
+        assert mock.return_value["err_msg"] == "Could not run command"
