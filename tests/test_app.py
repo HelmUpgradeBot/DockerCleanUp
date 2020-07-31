@@ -7,6 +7,7 @@ from pandas._testing import assert_frame_equal
 from docker_bot.app import (
     check_acr_size,
     delete_image,
+    login,
     pull_manifests,
     pull_image_size,
     pull_repos,
@@ -415,3 +416,61 @@ def test_delete_image_exception(mock_args):
             "err_msg": "Could not run command",
         }
         assert mock.call_args == expected_call
+
+
+@patch("docker_bot.app.run_cmd")
+def test_login_basic(mock_args):
+    acr_name = "test_acr"
+
+    mock_args.side_effect = [
+        {"returncode": 0},
+        {"returncode": 0, "output": "login succeeded"},
+    ]
+    expected_calls = [
+        call(["az", "login"]),
+        call(["az", "acr", "login", "-n", acr_name]),
+    ]
+
+    login(acr_name)
+
+    assert mock_args.call_count == 2
+    assert mock_args.call_args_list == expected_calls
+
+
+@patch("docker_bot.app.run_cmd")
+def test_login_identity(mock_args):
+    acr_name = "test_acr"
+
+    mock_args.side_effect = [
+        {"returncode": 0},
+        {"returncode": 0, "output": "login succeeded"},
+    ]
+    expected_calls = [
+        call(["az", "login", "--identity"]),
+        call(["az", "acr", "login", "-n", acr_name]),
+    ]
+
+    login(acr_name, identity=True)
+
+    assert mock_args.call_count == 2
+    assert mock_args.call_args_list == expected_calls
+
+
+@patch("docker_bot.app.run_cmd")
+def test_login_exception(mock_args):
+    acr_name = "test_acr"
+
+    mock_args.side_effect = [
+        {"returncode": 1, "err_msg": "Could not run command"},
+        {"returncode": 1, "err_msg": "Could not run command"},
+    ]
+    expected_calls = [
+        call(["az", "login"]),
+        call(["az", "acr", "login", "-n", acr_name]),
+    ]
+
+    with mock_args as mock, pytest.raises(RuntimeError):
+        login(acr_name)
+
+        assert mock.call_count == 2
+        assert mock.call_args_list == expected_calls

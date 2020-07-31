@@ -8,6 +8,44 @@ from .helper_functions import run_cmd
 logger = logging.getLogger()
 
 
+def login(acr_name: str, identity: bool = False) -> None:
+    """Login to Azure and the specified Container Registry
+
+    Args:
+        acr_name (str): The ACR to be accessed
+        identity (bool, optional): Login to Azure using a Managed Identity.
+                                   Defaults to False.
+    """
+    # Login to Azure
+    login_cmd = ["az", "login"]
+
+    if identity:
+        login_cmd.append("--identity")
+        logger.info("Loggin into Azure with Managed Identity")
+    else:
+        logger.info("Logging into Azure interactively")
+
+    result = run_cmd(login_cmd)
+
+    if result["returncode"] != 0:
+        logger.error(result["err_msg"])
+        raise RuntimeError(result["err_msg"])
+
+    logger.info("Successfully logged into Azure")
+
+    # Login to ACR
+    logger.info("Logging into ACR: %s" % acr_name)
+    acr_cmd = ["az", "acr", "login", "-n", acr_name]
+
+    result = run_cmd(acr_cmd)
+
+    if "login succeeded" in result["output"].lower():
+        logger.info("Successfully logged into ACR")
+    else:
+        logger.error(result["returncode"])
+        raise RuntimeError(result["err_msg"])
+
+
 def check_acr_size(acr_name: str, limit: float) -> Tuple[float, bool]:
     """Check the size of an Azure Container Registry against a user-defined
     limit
