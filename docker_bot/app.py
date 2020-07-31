@@ -18,7 +18,7 @@ def check_acr_size(acr_name: str, limit: float) -> Tuple[float, bool]:
 
     Returns:
         size (float): The size of the ACR in GB
-        aggressive (bool): Aggressively clean the registry of large images
+        proceed (bool): Proceed with image deletion if True
     """
     logger.info("Checking the size of ACR: %s" % acr_name)
 
@@ -44,12 +44,12 @@ def check_acr_size(acr_name: str, limit: float) -> Tuple[float, bool]:
 
     if size < (limit * 1.0e3):
         logger.info("%s is LESS THAN %.2f TB" % (acr_name, limit))
-        aggressive = False
+        proceed = False
     elif size >= (limit * 1.0e3):
         logger.info("%s is LARGER THAN %.2f TB" % (acr_name, limit))
-        aggressive = True
+        proceed = True
 
-    return size, aggressive
+    return size, proceed
 
 
 def pull_repos(acr_name: str) -> list:
