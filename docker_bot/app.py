@@ -304,3 +304,11 @@ def run(
 
                 for image_name in images_to_delete.image_name:
                     delete_image(acr_name, image_name)
+
+            # Re-check ACR size
+            size, proceed = check_acr_size(acr_name)
+
+            if proceed:
+                logger.info(
+                    "Size of %s still LARGER THAN %s TB. Please re-run with --purge flag." % (acr_name, limit)
+                )
