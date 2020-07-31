@@ -162,3 +162,21 @@ def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
         diff,
         int(result["output"]) * 1.0e-9,
     )
+
+
+def sort_image_df(image_df: pd.DataFrame, max_age: int) -> pd.DataFrame:
+    """Sort and reduce a DataFrame of Container image information to those that
+    exceed a user-defined maximum age
+
+    Args:
+        image_df (pd.DataFrame): DataFrame containing information relating to
+                                 the stored images
+        max_age (int): The maximum age in days that the user stores the images for
+
+    Returns:
+        pd.DataFrame: DataFrame containing information for only the images that
+                      exceed the maximum age limit
+    """
+    # Filter images by age
+    image_df = image_df.loc[image_df["age_days"] >= max_age]
+    return image_df.reset_index(drop=True)

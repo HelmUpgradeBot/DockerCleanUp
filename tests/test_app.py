@@ -2,12 +2,14 @@ import pytest
 import pandas as pd
 from freezegun import freeze_time
 from unittest.mock import call, patch
+from pandas._testing import assert_frame_equal
 
 from docker_bot.app import (
     check_acr_size,
     pull_manifests,
     pull_image_size,
     pull_repos,
+    sort_image_df,
 )
 
 
@@ -302,3 +304,56 @@ def test_pull_repos_exception(mock_args):
             "returncode": 1,
             "err_msg": "Could not run command",
         }
+
+
+def test_sort_image_df_all_match():
+    max_age = 2
+    test_df = pd.DataFrame(
+        {
+            "image_name": ["image1", "image2"],
+            "age_days": [3, 4],
+            "size_gb": [1.0, 1.5],
+        }
+    )
+
+    sorted_df = sort_image_df(test_df, max_age)
+
+    assert_frame_equal(test_df, sorted_df)
+
+
+def test_sort_image_df_no_match():
+    max_age = 2
+    test_df = pd.DataFrame(
+        {
+            "image_name": ["image1", "image2"],
+            "age_days": [0, 1],
+            "size_gb": [1.0, 1.5],
+        }
+    )
+
+    sorted_df = sort_image_df(test_df, max_age)
+
+    assert sorted_df.empty
+
+
+def test_sort_image_df_partial_match():
+    max_age = 2
+    test_df = pd.DataFrame(
+        {
+            "image_name": ["image1", "image2", "image3"],
+            "age_days": [1, 2, 3],
+            "size_gb": [1.0, 1.5, 2.0],
+        }
+    )
+    expected_df = pd.DataFrame(
+        {
+            "image_name": ["image2", "image3"],
+            "age_days": [2, 3],
+            "size_gb": [1.5, 2.0],
+        }
+    )
+
+    sorted_df = sort_image_df(test_df, max_age)
+
+    assert_frame_equal(sorted_df, expected_df)
+    assert len(sorted_df) == 2
