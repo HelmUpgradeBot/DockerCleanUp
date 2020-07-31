@@ -1,7 +1,9 @@
 import pytest
+import pandas as pd
+from freezegun import freeze_time
 from unittest.mock import call, patch
 
-from docker_bot.app import check_acr_size, pull_manifests
+from docker_bot.app import check_acr_size, pull_manifests, pull_image_size
 
 
 @patch(
@@ -170,3 +172,84 @@ def test_pull_manifests_exception(mock_args):
         )
         assert mock.return_value["returncode"] == 1
         assert mock.return_value["err_msg"] == "Could not run command"
+
+
+def test_pull_image_size():
+    acr_name = "test_acr"
+    repo = "test_repo"
+    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest"}
+
+    mock_run = patch(
+        "docker_bot.app.run_cmd",
+        return_value={
+            "returncode": 0,
+            "output": "1000000000"
+        }
+    )
+
+    with mock_run as mock, freeze_time("2020-08-01T09:30:00.0000000Z"):
+        out = pull_image_size(acr_name, repo, manifest)
+
+        mock.assert_called_once()
+        mock.assert_called_once_with(
+            [
+                "az",
+                "acr",
+                "repository",
+                "show",
+                "-n",
+                acr_name,
+                "--imag",
+                f"{repo}@{manifest['digest']}",
+                "--query",
+                "imageSize",
+                "-o",
+                "tsv",
+            ]
+        )
+        assert mock.return_value == {
+            "returncode": 0,
+            "output": "1000000000"
+        }
+        assert out[0] == f"{repo}@{manifest['digest']}"
+        assert out[1] == 1
+        assert out[2] == 1.0
+
+
+def test_pull_image_size_exception():
+    acr_name = "test_acr"
+    repo = "test_repo"
+    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest"}
+
+    mock_run = patch(
+        "docker_bot.app.run_cmd",
+        return_value={
+            "returncode": 1,
+            "err_msg": "Could not run command"
+        }
+    )
+
+    with mock_run as mock, freeze_time("2020-08-01T09:30:00.0000000Z"), pytest.raises(RuntimeError):
+        pull_image_size(acr_name, repo, manifest)
+
+        mock.assert_called_once()
+        mock.assert_called_once_with(
+            [
+                "az",
+                "acr",
+                "repository",
+                "show",
+                "-n",
+                acr_name,
+                "--imag",
+                f"{repo}@{manifest['digest']}",
+                "--query",
+                "imageSize",
+                "-o",
+                "tsv",
+            ]
+        )
+        assert mock.return_value == {
+            "returncode": 1,
+            "err_msg": "Could not run command"
+        }
