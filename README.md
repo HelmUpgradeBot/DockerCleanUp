@@ -71,29 +71,29 @@ You will need to restart the terminal for the second command to take effect.
 
 ## :children_crossing: Usage
 
-Run the bot with the following command:
-
 ```bash
-DockerCleanUpBot ACR_NAME \
-    --max-age [-a] AGE \
-    --limit [-l] SIZE_LIMIT \
-    --ci CI_IMAGES \
-    --identity \
-    --dry-run \
-    --purge
+usage: docker-bot [-h] [-a MAX_AGE] [-l LIMIT] [--identity] [--dry-run]
+                  [--purge] [-v]
+                  name
+
+Script to clean old Docker images out of an Azure Container Registry (ACR)
+
+positional arguments:
+  name                  Name of ACR to clean
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -a MAX_AGE, --max-age MAX_AGE
+                        Maximum age of images in days, older images will be
+                        deleted. Default: 90 days.
+  -l LIMIT, --limit LIMIT
+                        Maximum size in TB the ACR is allowed to grow to.
+                        Default: 2 TB.
+  --identity            Login to Azure with a Managed System Identity
+  --dry-run             Do a dry-run, no images will be deleted.
+  --purge               Purge all repositories within the ACR
+  -v, --verbose         Output logs to console
 ```
-
-where:
-
-- `ACR_NAME` (string) is the name of the ACR to be cleaned;
-- `AGE` (integer, default = 90) is the maximum age in days for images in the ACR;
-- `SIZE_LIMIT` (float, default = 2.0) is the maximum size in TB that the ACR is permitted to grow to;
-- `CI_IMAGES` is a list of image names that have been built by Continuous Integration;
-- `--identity` is a Boolean flag allowing the resource to login to Azure with a Managed System Identity; and
-- `--dry-run` is a Boolean flag that prevents the images from actually being deleted;
-- `--purge` is a Boolean flag that will delete all images in the Container Registry.
-
-The script will generate a log file (`DockerCleanUpBot.log`) with the output of the actions.
 
 ## :clock2: CRON expression
 
