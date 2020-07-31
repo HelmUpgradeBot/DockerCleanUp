@@ -76,7 +76,7 @@ def main():
     logging_config(args.verbose)
 
     run(
-        args.acr_name,
+        args.name,
         args.max_age,
         args.limit,
         dry_run=args.dry_run,
