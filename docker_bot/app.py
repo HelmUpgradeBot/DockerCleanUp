@@ -291,6 +291,7 @@ def run(
                 },
                 ignore_index=True,
             )
+        image_df.set_index("image_name", inplace=True)
 
         if proceed and not purge:
 
@@ -302,8 +303,9 @@ def run(
             else:
                 logger.info("Number of images to be deleted: %s" % len(images_to_delete))
 
-                for image_name in images_to_delete.image_name:
+                for image_name in images_to_delete.index:
                     delete_image(acr_name, image_name)
+                    image_df.drop(image_name, inplace=True)
 
             # Re-check ACR size
             size, proceed = check_acr_size(acr_name)
