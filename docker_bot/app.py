@@ -248,3 +248,59 @@ def delete_image(acr_name: str, image_name: str) -> None:
         raise RuntimeError(result["err_msg"])
 
     logger.info("Successfully deleted image")
+
+
+def run(
+    acr_name: str,
+    max_age: int,
+    limit: float,
+    dry_run: bool = False,
+    purge: bool = False,
+    identity: bool = False,
+) -> None:
+    if dry_run:
+        logger.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
+    if purge:
+        logger.info("ALL IMAGES WILL BE DELETED!")
+
+    login(identity=identity)
+
+    size, proceed = check_acr_size(acr_name, limit)
+
+    if proceed or purge:
+        repos = pull_repos(acr_name)
+
+        logger.info("Checking repository manifests")
+        manifests = {}
+        for repo in repos:
+            cases = pull_manifests(acr_name, repo)
+            for case in cases:
+                manifests.update(case)
+
+        logger.info("Checking image sizes")
+        image_df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
+        for manifest in manifests:
+            image_name, age_days, image_size = pull_image_size(
+                acr_name, manifest
+            )
+            image_df = image_df.append(
+                {
+                    "image_name": image_name,
+                    "age_days": age_days,
+                    "size_gb": image_size,
+                },
+                ignore_index=True,
+            )
+
+        if proceed and not purge:
+
+            logger.info("Filtering dataframe for old images")
+            images_to_delete = sort_image_df(image_df, max_age)
+
+            if dry_run:
+                logger.info("Number of images elegible for deletion %s" % len(images_to_delete))
+            else:
+                logger.info("Number of images to be deleted: %s" % len(images_to_delete))
+
+                for image_name in images_to_delete.image_name:
+                    delete_image(acr_name, image_name)
