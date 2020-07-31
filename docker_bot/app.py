@@ -299,9 +299,15 @@ def run(
             images_to_delete = sort_image_df(image_df, max_age)
 
             if dry_run:
-                logger.info("Number of images elegible for deletion %s" % len(images_to_delete))
+                logger.info(
+                    "Number of images elegible for deletion %s"
+                    % len(images_to_delete)
+                )
             else:
-                logger.info("Number of images to be deleted: %s" % len(images_to_delete))
+                logger.info(
+                    "Number of images to be deleted: %s"
+                    % len(images_to_delete)
+                )
 
                 for image_name in images_to_delete.index:
                     delete_image(acr_name, image_name)
@@ -312,5 +318,6 @@ def run(
 
             if proceed:
                 logger.info(
-                    "Size of %s still LARGER THAN %s TB. Please re-run with --purge flag." % (acr_name, limit)
+                    "Size of %s still LARGER THAN %s TB. Please re-run with --purge flag."
+                    % (acr_name, limit)
                 )
