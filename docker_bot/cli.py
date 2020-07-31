@@ -1,7 +1,22 @@
 import sys
 import argparse
 
-from .DockerCleanUpBot import DockerCleanUpBot
+
+def logging_config(verbose: bool = False) -> None:
+    if verbose:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="[%(asctime)s %(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    else:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            filename="DockerCleanUpBot.log",
+            filemode="a",
+            format="[%(asctime)s %(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
 
 
 def parse_args(args):
@@ -32,6 +47,9 @@ def parse_args(args):
     )
 
     parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Output logs to console",
+    )
+    parser.add_argument(
         "--identity",
         action="store_true",
         help="Login to Azure with a Managed System Identity",
@@ -60,8 +78,7 @@ def main():
     args = parse_args(sys.argv[1:])
     check_parser(args)
 
-    obj = DockerCleanUpBot(vars(args))
-    obj.clean_up()
+    logging_config(args.verbose)
 
 
 if __name__ == "__main__":
