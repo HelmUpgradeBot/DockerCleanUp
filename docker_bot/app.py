@@ -82,19 +82,22 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
 
     logging.info("Successfully pulled mainfests")
     manifests = json.loads(result["output"])
+    print(manifests)
     logger.info("Total number of manifests in %s: %d" % (repo, len(manifests)))
+
+    for manifest in manifests:
+        manifest["repo"] = repo
 
     return manifests
 
 
 def pull_image_size(
-    acr_name: str, repo: str, manifest: dict
+    acr_name: str, manifest: dict
 ) -> Tuple[str, int, float]:
     """Get the size of an image in an Azure Container Registry
 
     Args:
         acr_name (str): Name of the ACR
-        repo (str): Image repository
         manifest (dict): Image manifest
 
     Returns:
@@ -105,7 +108,7 @@ def pull_image_size(
     # Get the time difference between now and the manifest timestamp in days
     timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
     diff = (datetime.datetime.now() - timestamp).days
-    logger.info("%s@%s is %d days old" % (repo, manifest, diff))
+    logger.info("%s@%s is %d days old" % (manifest["repo"], manifest["digest"], diff))
 
     # Check the size of the image
     image_size_cmd = [
@@ -116,7 +119,7 @@ def pull_image_size(
         "-n",
         acr_name,
         "--imag",
-        f"{repo}@{manifest['digest']}",
+        f"{manifest['repo']}@{manifest['digest']}",
         "--query",
         "imageSize",
         "-o",
@@ -129,4 +132,4 @@ def pull_image_size(
         logger.error(result["err_msg"])
         raise RuntimeError(result["err_msg"])
 
-    return f"{repo}@{manifest['digest']}", diff, int(result["output"]) * 1.0e-9
+    return f"{manifest['repo']}@{manifest['digest']}", diff, int(result["output"]) * 1.0e-9

@@ -107,7 +107,7 @@ def test_check_acr_size_exception(mock_args):
     "docker_bot.app.run_cmd",
     return_value={
         "returncode": 0,
-        "output": '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "digest": "digest_image2"}]',
+        "output": '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "repo": "test_repo", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "repo": "test_repo", "digest": "digest_image2"}]',
     },
 )
 def test_pull_manifests(mock_args):
@@ -132,15 +132,17 @@ def test_pull_manifests(mock_args):
     assert mock_args.return_value["returncode"] == 0
     assert (
         mock_args.return_value["output"]
-        == '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "digest": "digest_image2"}]'
+        == '[{"timestamp": "2020-07-30T19:56:00.0000000Z", "repo": "test_repo", "digest": "digest_image1"}, {"timestamp": "2020-07-29T19:57:00.0000000Z", "repo": "test_repo", "digest": "digest_image2"}]'
     )
     assert out == [
         {
             "timestamp": "2020-07-30T19:56:00.0000000Z",
+            "repo": repo,
             "digest": "digest_image1",
         },
         {
             "timestamp": "2020-07-29T19:57:00.0000000Z",
+            "repo": repo,
             "digest": "digest_image2",
         },
     ]
@@ -177,7 +179,7 @@ def test_pull_manifests_exception(mock_args):
 def test_pull_image_size():
     acr_name = "test_acr"
     repo = "test_repo"
-    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest"}
+    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest", "repo": "test_repo"}
 
     mock_run = patch(
         "docker_bot.app.run_cmd",
@@ -188,7 +190,7 @@ def test_pull_image_size():
     )
 
     with mock_run as mock, freeze_time("2020-08-01T09:30:00.0000000Z"):
-        out = pull_image_size(acr_name, repo, manifest)
+        out = pull_image_size(acr_name, manifest)
 
         mock.assert_called_once()
         mock.assert_called_once_with(
@@ -218,8 +220,7 @@ def test_pull_image_size():
 
 def test_pull_image_size_exception():
     acr_name = "test_acr"
-    repo = "test_repo"
-    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest"}
+    manifest = {"timestamp": "2020-07-30T21:12:00.0000000Z", "digest": "image_digest", "repo": "test_repo"}
 
     mock_run = patch(
         "docker_bot.app.run_cmd",
@@ -230,7 +231,7 @@ def test_pull_image_size_exception():
     )
 
     with mock_run as mock, freeze_time("2020-08-01T09:30:00.0000000Z"), pytest.raises(RuntimeError):
-        pull_image_size(acr_name, repo, manifest)
+        pull_image_size(acr_name, manifest)
 
         mock.assert_called_once()
         mock.assert_called_once_with(
