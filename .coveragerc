@@ -1,0 +1,8 @@
+[run]
+omit =
+    # omit all tests
+    tests/*
+    # omit init files
+    **/__init__.py
+    # Omit site-packages
+    **/site_packages/**

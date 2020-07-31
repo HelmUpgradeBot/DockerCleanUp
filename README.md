@@ -5,15 +5,22 @@
 This is an automatable bot to clean up Docker images stored in an [Azure Container Registry (ACR)](https://docs.microsoft.com/en-us/azure/container-registry/) that are 90 days old or more.
 It also checks that the ACR hasn't grown above a certain memory limit.
 
+| | :recycle: CI Status |
+| :--- | :--- |
+| Tests | [![Tests](https://github.com/HelmUpgradeBot/DockerCleanUp/workflows/Tests/badge.svg)](https://github.com/HelmUpgradeBot/DockerCleanUp/actions?query=workflow%3ATests) |
+| Black | [![Black](https://github.com/HelmUpgradeBot/DockerCleanUp/workflows/Black/badge.svg)](https://github.com/HelmUpgradeBot/DockerCleanUp/actions?query=workflow%3ABlack) |
+| Flake8 | [![Flake8](https://github.com/HelmUpgradeBot/DockerCleanUp/workflows/Flake8/badge.svg)](https://github.com/HelmUpgradeBot/DockerCleanUp/actions?query=workflow%3AFlake8) |
+
 **Table of Contents:**
 
 - [:mag: Overview](#mag-overview)
 - [🤔 Assumptions DockerCleanUp Makes](#-assumptions-dockercleanupbot-makes)
-- [:pushpin: Requirements](#pushpin-installation-and-requirements)
+- [:pushpin: Installation and Requirements](#pushpin-installation-and-requirements)
   - [:cloud: Installing Azure CLI](#cloud-installing-azure-cli-on-linux)
   - [:whale: Installing Docker CLI (on Linux)](#whale-installing-docker-cli-on-linux)
 - [:children_crossing: Usage](#children_crossing-usage)
 - [:clock2: CRON Expression](#clock2-cron-expression)
+- [:white_check_mark: Running Tests](#white_check_mark-running-tests)
 - [:leftwards_arrow_with_hook: Pre-commit Hook](#leftwards_arrow_with_hook-pre-commit-hook)
 - [:sparkles: Contributing](#sparkles-contributing)
 
@@ -71,29 +78,29 @@ You will need to restart the terminal for the second command to take effect.
 
 ## :children_crossing: Usage
 
-Run the bot with the following command:
-
 ```bash
-DockerCleanUpBot ACR_NAME \
-    --max-age [-a] AGE \
-    --limit [-l] SIZE_LIMIT \
-    --ci CI_IMAGES \
-    --identity \
-    --dry-run \
-    --purge
+usage: docker-bot [-h] [-a MAX_AGE] [-l LIMIT] [--identity] [--dry-run]
+                  [--purge] [-v]
+                  name
+
+Script to clean old Docker images out of an Azure Container Registry (ACR)
+
+positional arguments:
+  name                  Name of ACR to clean
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -a MAX_AGE, --max-age MAX_AGE
+                        Maximum age of images in days, older images will be
+                        deleted. Default: 90 days.
+  -l LIMIT, --limit LIMIT
+                        Maximum size in TB the ACR is allowed to grow to.
+                        Default: 2 TB.
+  --identity            Login to Azure with a Managed System Identity
+  --dry-run             Do a dry-run, no images will be deleted.
+  --purge               Purge all repositories within the ACR
+  -v, --verbose         Output logs to console
 ```
-
-where:
-
-- `ACR_NAME` (string) is the name of the ACR to be cleaned;
-- `AGE` (integer, default = 90) is the maximum age in days for images in the ACR;
-- `SIZE_LIMIT` (float, default = 2.0) is the maximum size in TB that the ACR is permitted to grow to;
-- `CI_IMAGES` is a list of image names that have been built by Continuous Integration;
-- `--identity` is a Boolean flag allowing the resource to login to Azure with a Managed System Identity; and
-- `--dry-run` is a Boolean flag that prevents the images from actually being deleted;
-- `--purge` is a Boolean flag that will delete all images in the Container Registry.
-
-The script will generate a log file (`DockerCleanUpBot.log`) with the output of the actions.
 
 ## :clock2: CRON expression
 
@@ -101,6 +108,23 @@ To run this script at midnight on the first day of every month, use the followin
 
 ```bash
 0 0 1 * * cd /path/to/DockerCleanUp && ~/path/to/python setup.py install &&DockerCleanUpBot.py [--flags]
+```
+
+## :white_check_mark: Running Tests
+
+After following the [installation instructions](#pushpi-installation-and-requirements), the test suite can be run with the following command:
+
+```bash
+python -m pytest -vvv
+```
+
+To see the coverage of the test suite, execute the following:
+
+```bash
+python -m coverage run -m pytest -vvv
+
+coverage report  # To have coverage printed to the terminal
+coverage html    # To generate interactive html pages detailing the coverage
 ```
 
 ## :leftwards_arrow_with_hook: Pre-commit Hook
