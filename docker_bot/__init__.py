@@ -3,6 +3,7 @@ from .helper_functions import run_cmd
 
 from .app import (
     check_acr_size,
+    delete_image,
     pull_repos,
     pull_manifests,
     pull_image_size,

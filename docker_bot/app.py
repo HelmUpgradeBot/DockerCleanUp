@@ -180,3 +180,33 @@ def sort_image_df(image_df: pd.DataFrame, max_age: int) -> pd.DataFrame:
     # Filter images by age
     image_df = image_df.loc[image_df["age_days"] >= max_age]
     return image_df.reset_index(drop=True)
+
+
+def delete_image(acr_name: str, image_name: str) -> None:
+    """Delete an image in an Azure Container Regsitry
+
+    Args:
+        acr_name (str): Name of the ACR
+        image_name (str): Image to be deleted
+    """
+    logger.info("Deleting image: %s" % image_name)
+
+    del_cmd = [
+        "az",
+        "acr",
+        "repository",
+        "delete",
+        "-n",
+        acr_name,
+        "--image",
+        image_name,
+        "--yes",
+    ]
+
+    result = run_cmd(del_cmd)
+
+    if result["returncode"] != 0:
+        logger.error(result["err_msg"])
+        raise RuntimeError(result["err_msg"])
+
+    logger.info("Successfully deleted image")

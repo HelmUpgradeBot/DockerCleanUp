@@ -6,6 +6,7 @@ from pandas._testing import assert_frame_equal
 
 from docker_bot.app import (
     check_acr_size,
+    delete_image,
     pull_manifests,
     pull_image_size,
     pull_repos,
@@ -357,3 +358,60 @@ def test_sort_image_df_partial_match():
 
     assert_frame_equal(sorted_df, expected_df)
     assert len(sorted_df) == 2
+
+
+@patch("docker_bot.app.run_cmd", return_value={"returncode": 0})
+def test_delete_image(mock_args):
+    acr_name = "test_acr"
+    image_name = "test_image"
+    expected_call = call(
+        [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            acr_name,
+            "--image",
+            image_name,
+            "--yes",
+        ]
+    )
+
+    delete_image(acr_name, image_name)
+
+    assert mock_args.call_count == 1
+    assert mock_args.return_value == {"returncode": 0}
+    assert mock_args.call_args == expected_call
+
+
+@patch(
+    "docker_bot.app.run_cmd",
+    return_value={"returncode": 1, "err_msg": "Could not run command"},
+)
+def test_delete_image_exception(mock_args):
+    acr_name = "test_acr"
+    image_name = "test_image"
+    expected_call = call(
+        [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            acr_name,
+            "--image",
+            image_name,
+            "--yes",
+        ]
+    )
+
+    with mock_args as mock, pytest.raises(RuntimeError):
+        delete_image(acr_name, image_name)
+
+        assert mock.call_count == 1
+        assert mock.return_value == {
+            "returncode": 1,
+            "err_msg": "Could not run command",
+        }
+        assert mock.call_args == expected_call
