@@ -1,5 +1,6 @@
 import json
 import logging
+import datetime
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
@@ -103,7 +104,7 @@ def pull_image_size(
     """
     # Get the time difference between now and the manifest timestamp in days
     timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
-    diff = (pd.Timestamp.now() - timestamp).days
+    diff = (datetime.datetime.now() - timestamp).days
     logger.info("%s@%s is %d days old" % (repo, manifest, diff))
 
     # Check the size of the image
