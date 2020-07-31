@@ -39,16 +39,7 @@ def parse_args(args):
         default=2.0,
         help="Maximum size in TB the ACR is allowed to grow to. Default: 2 TB.",
     )
-    parser.add_argument(
-        "--ci",
-        nargs="+",
-        default=None,
-        help="List of images built by CI to be deleted",
-    )
 
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Output logs to console",
-    )
     parser.add_argument(
         "--identity",
         action="store_true",
@@ -63,6 +54,9 @@ def parse_args(args):
         "--purge",
         action="store_true",
         help="Purge all repositories within the ACR",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Output logs to console",
     )
 
     return parser.parse_args()
