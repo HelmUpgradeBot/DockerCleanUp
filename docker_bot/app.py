@@ -261,7 +261,17 @@ def purge_all(acr_name: str, df: pd.DataFrame) -> None:
     for image_name in df.index:
         logger.info("Deleting image: %s" % image_name)
 
-        delete_cmd = ["az", "acr", "repository", "delete", "-n", acr_name, "--image", image_name, "--yes"]
+        delete_cmd = [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            acr_name,
+            "--image",
+            image_name,
+            "--yes",
+        ]
 
         result = run_cmd(delete_cmd)
 
@@ -278,6 +288,19 @@ def run(
     purge: bool = False,
     identity: bool = False,
 ) -> None:
+    """Run the Docker Clean Up process
+
+    Args:
+        acr_name (str): The name of the ACR to clean
+        max_age (int): The maximum image age in days
+        limit (float): The maximum size limit of the ACR in TB
+        dry_run (bool, optional): Don't delete any images from the ACR.
+                                  Defaults to False.
+        purge (bool, optional): Delete all images from the ACR.
+                                Defaults to False.
+        identity (bool, optional): Login to Azure with a Managed Identity.
+                                   Defaults to False.
+    """
     if dry_run:
         logger.info("THIS IS A DRY RUN. NO IMAGES WILL BE DELETED.")
     if purge:
