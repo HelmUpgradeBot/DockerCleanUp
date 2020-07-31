@@ -52,6 +52,31 @@ def check_acr_size(acr_name: str, limit: float) -> Tuple[float, bool]:
     return size, aggressive
 
 
+def pull_repos(acr_name: str) -> list:
+    """Pull list of repositories stored in an Azure Container Registry
+
+    Args:
+        acr_name (str): Name of the ACR
+
+    Returns:
+        list: All the repositories stored in the ACR
+    """
+    logger.info("Pulling repositories in: %s" % acr_name)
+    list_cmd = ["az", "acr", "repository", "list", "-n", acr_name, "-o", "tsv"]
+
+    result = run_cmd(list_cmd)
+
+    if result["returncode"] != 0:
+        logger.error(result["err_msg"])
+        raise RuntimeError(result["err_msg"])
+
+    logger.info("Successfully pulled repositories")
+    repos = result["output"].split("\n")
+    logger.info("Total number of repositories: %s" % len(repos))
+
+    return repos
+
+
 def pull_manifests(acr_name: str, repo: str) -> dict:
     """Return image manifests for a repository in an Azure Container Registry
 
@@ -91,9 +116,7 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
     return manifests
 
 
-def pull_image_size(
-    acr_name: str, manifest: dict
-) -> Tuple[str, int, float]:
+def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
     """Get the size of an image in an Azure Container Registry
 
     Args:
@@ -108,7 +131,9 @@ def pull_image_size(
     # Get the time difference between now and the manifest timestamp in days
     timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
     diff = (datetime.datetime.now() - timestamp).days
-    logger.info("%s@%s is %d days old" % (manifest["repo"], manifest["digest"], diff))
+    logger.info(
+        "%s@%s is %d days old" % (manifest["repo"], manifest["digest"], diff)
+    )
 
     # Check the size of the image
     image_size_cmd = [
@@ -132,4 +157,8 @@ def pull_image_size(
         logger.error(result["err_msg"])
         raise RuntimeError(result["err_msg"])
 
-    return f"{manifest['repo']}@{manifest['digest']}", diff, int(result["output"]) * 1.0e-9
+    return (
+        f"{manifest['repo']}@{manifest['digest']}",
+        diff,
+        int(result["output"]) * 1.0e-9,
+    )
