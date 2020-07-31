@@ -1,5 +1,6 @@
 import sys
 import argparse
+from .app import run
 
 
 def logging_config(verbose: bool = False) -> None:
@@ -12,7 +13,7 @@ def logging_config(verbose: bool = False) -> None:
     else:
         logging.basicConfig(
             level=logging.DEBUG,
-            filename="DockerCleanUpBot.log",
+            filename="docker-bot.log",
             filemode="a",
             format="[%(asctime)s %(levelname)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
@@ -73,6 +74,15 @@ def main():
     check_parser(args)
 
     logging_config(args.verbose)
+
+    run(
+        args.acr_name,
+        args.max_age,
+        args.limit,
+        dry_run=args.dry_run,
+        purge=args.purge,
+        identity=args.identity,
+    )
 
 
 if __name__ == "__main__":
