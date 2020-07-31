@@ -1,3 +1,4 @@
+import sys
 import json
 import logging
 import datetime
@@ -250,6 +251,25 @@ def delete_image(acr_name: str, image_name: str) -> None:
     logger.info("Successfully deleted image")
 
 
+def purge_all(acr_name: str, df: pd.DataFrame) -> None:
+    """Purge all images from an Azure Container Registry
+
+    Args:
+        acr_name (str): The name of the ACR to purge
+        df (pd.DataFrame): A DataFrame containing images stored in the ACR
+    """
+    for image_name in df.index:
+        logger.info("Deleting image: %s" % image_name)
+
+        delete_cmd = ["az", "acr", "repository", "delete", "-n", acr_name, "--image", image_name, "--yes"]
+
+        result = run_cmd(delete_cmd)
+
+        if result["returncode"] != 0:
+            logger.erro(result["err_msg"])
+            raise RuntimeError(result["err_msg"])
+
+
 def run(
     acr_name: str,
     max_age: int,
@@ -263,13 +283,18 @@ def run(
     if purge:
         logger.info("ALL IMAGES WILL BE DELETED!")
 
+    # Login to Azure and ACR
     login(identity=identity)
 
+    # Check the size of the ACR
     size, proceed = check_acr_size(acr_name, limit)
 
+    # If the ACR is too large or --purge was set, then when need to do stuff!
     if proceed or purge:
+        # Get the repos in the ACR
         repos = pull_repos(acr_name)
 
+        # Get the manifests for the repos in the ACR
         logger.info("Checking repository manifests")
         manifests = {}
         for repo in repos:
@@ -277,6 +302,7 @@ def run(
             for case in cases:
                 manifests.update(case)
 
+        # Checking sizes of images
         logger.info("Checking image sizes")
         image_df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
         for manifest in manifests:
@@ -293,8 +319,16 @@ def run(
             )
         image_df.set_index("image_name", inplace=True)
 
-        if proceed and not purge:
+        # If the ACR is under the size limit but purge has been set anyway,
+        # purge the ACR and exit the program
+        if purge and not proceed:
+            logging.info("Purging ACR: %s" % acr_name)
+            purge_all(acr_name, image_df)
+            sys.exit(0)
 
+        # If the ACR is above the size limit
+        if proceed and not purge:
+            # Find the oldest images to delete
             logger.info("Filtering dataframe for old images")
             images_to_delete = sort_image_df(image_df, max_age)
 
@@ -309,6 +343,7 @@ def run(
                     % len(images_to_delete)
                 )
 
+                # Delete the old images
                 for image_name in images_to_delete.index:
                     delete_image(acr_name, image_name)
                     image_df.drop(image_name, inplace=True)
@@ -317,7 +352,12 @@ def run(
             size, proceed = check_acr_size(acr_name)
 
             if proceed:
+                # Advise the user to re-run since the ACR is still large
                 logger.info(
-                    "Size of %s still LARGER THAN %s TB. Please re-run with --purge flag."
+                    "Size of %s still LARGER THAN %s TB. Please re-run and optionally set the --purge flag."
                     % (acr_name, limit)
                 )
+
+    # The ACR is under the size limit and the --purge flag has not been set
+    elif not proceed and not purge:
+        logger.info("Nothing to do. PROGRAM EXITING.")
