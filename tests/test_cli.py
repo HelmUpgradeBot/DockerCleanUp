@@ -12,7 +12,7 @@ def test_check_parser():
 
 
 def test_check_parser_both_false():
-    test_args = argparse.Namespace(dry_run=False, purge=False)
+    test_args = argparse.Namespace(dry_run=False, purge=False, threads=1)
 
     try:
         check_parser(test_args)
@@ -21,14 +21,24 @@ def test_check_parser_both_false():
 
 
 def test_check_parser_alternate_values():
-    test_args1 = argparse.Namespace(dry_run=True, purge=False)
-    test_args2 = argparse.Namespace(dry_run=False, purge=True)
+    test_args1 = argparse.Namespace(dry_run=True, purge=False, threads=1)
+    test_args2 = argparse.Namespace(dry_run=False, purge=True, threads=1)
 
     try:
         check_parser(test_args1)
         check_parser(test_args2)
     except:  # noqa: E722
         pytest.fail("Unexpected error")
+
+
+@patch("docker_bot.cli.cpu_count", return_value=4)
+def test_check_parser_threads(mock_args):
+    test_args = argparse.Namespace(dry_run=True, purge=False, threads=5)
+
+    with pytest.raises(ValueError):
+        check_parser(test_args)
+        assert mock_args.call_count == 1
+        assert mock_args.return_value == 4
 
 
 @patch(

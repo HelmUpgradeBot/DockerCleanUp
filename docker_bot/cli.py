@@ -1,6 +1,7 @@
 import sys
 import argparse
 from .app import run
+from multiprocessing import cpu_count
 
 
 def logging_config(verbose: bool = False) -> None:
@@ -73,6 +74,15 @@ def parse_args(args):
 def check_parser(args):
     if args.dry_run and args.purge:
         raise ValueError("purge and dry-run options cannot be used together")
+
+    if args.threads != 1:
+        cpus = cpu_count()
+        if args.threads > cpus:
+            raise ValueError(
+                "You have requested more threads than are available cores on this machine.\n"
+                f"This machine has {cpus} CPUs available.\n"
+                "Please adjust the value of --threads accordingly."
+            )
 
 
 def main():
