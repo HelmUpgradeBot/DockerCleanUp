@@ -33,7 +33,9 @@ def test_check_parser_alternate_values():
 
 @patch(
     "argparse.ArgumentParser.parse_args",
-    return_value=argparse.Namespace(name="test_acr", max_age=90, limit=2.0,),
+    return_value=argparse.Namespace(
+        name="test_acr", max_age=90, limit=2.0, threads=1
+    ),
 )
 def test_parser_run_basic(mock_args):
     parser = parse_args("test_acr")
@@ -41,6 +43,7 @@ def test_parser_run_basic(mock_args):
     assert parser.name == "test_acr"
     assert parser.max_age == 90
     assert parser.limit == 2.0
+    assert parser.threads == 1
     assert mock_args.call_count == 1
 
 
@@ -65,7 +68,9 @@ def test_parser_run_boolean(mock_args):
 
 @patch(
     "argparse.ArgumentParser.parse_args",
-    return_value=argparse.Namespace(name="test_acr", max_age=10, limit=1.5),
+    return_value=argparse.Namespace(
+        name="test_acr", max_age=10, limit=1.5, threads=4
+    ),
 )
 def test_parser_run_options(mock_args):
     parser = parse_args(["test_acr", "--max-age", 10, "--limit", 1.5])
@@ -73,4 +78,5 @@ def test_parser_run_options(mock_args):
     assert parser.name == "test_acr"
     assert parser.max_age == 10
     assert parser.limit == 1.5
+    assert parser.threads == 4
     assert mock_args.call_count == 1

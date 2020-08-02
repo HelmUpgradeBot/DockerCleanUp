@@ -40,6 +40,13 @@ def parse_args(args):
         default=2.0,
         help="Maximum size in TB the ACR is allowed to grow to. Default: 2 TB.",
     )
+    parser.add_argument(
+        "-t",
+        "--thread",
+        type=int,
+        default=1,
+        help="Number of threads to parallelise over",
+    )
 
     parser.add_argument(
         "--identity",
