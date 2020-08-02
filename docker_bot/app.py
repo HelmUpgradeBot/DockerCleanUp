@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger()
 
@@ -284,6 +285,7 @@ def run(
     acr_name: str,
     max_age: int,
     limit: float,
+    threads: int,
     dry_run: bool = False,
     purge: bool = False,
     identity: bool = False,
@@ -294,6 +296,7 @@ def run(
         acr_name (str): The name of the ACR to clean
         max_age (int): The maximum image age in days
         limit (float): The maximum size limit of the ACR in TB
+        threads (int): The number of threads to parallelise over
         dry_run (bool, optional): Don't delete any images from the ACR.
                                   Defaults to False.
         purge (bool, optional): Delete all images from the ACR.
@@ -320,10 +323,13 @@ def run(
         # Get the manifests for the repos in the ACR
         logger.info("Checking repository manifests")
         manifests = {}
-        for repo in repos:
-            cases = pull_manifests(acr_name, repo)
-            for case in cases:
-                manifests.update(case)
+
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = [executor.submit(pull_manifest, acr_name, repo) for repo in repos]
+
+            for cases in futures:
+                for case in cases:
+                    manifests.update(case)
 
         # Checking sizes of images
         logger.info("Checking image sizes")
