@@ -177,7 +177,6 @@ def pull_image_age(acr_name: str, manifest: dict) -> Tuple[str, int]:
     return (
         f"{manifest['repo']}@{manifest['digest']}",
         diff,
-        int(result["output"]) * 1.0e-9,
     )
 
 
@@ -325,10 +324,7 @@ def run(
                 image_name, ages_days = future
 
                 image_df = image_df.append(
-                    {
-                        "image_name": image_name,
-                        "age_days": age_days,
-                    },
+                    {"image_name": image_name, "age_days": age_days,},
                     ignore_index=True,
                 )
 
