@@ -325,7 +325,10 @@ def run(
         manifests = {}
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
-            futures = [executor.submit(pull_manifest, acr_name, repo) for repo in repos]
+            futures = [
+                executor.submit(pull_manifest, acr_name, repo)
+                for repo in repos
+            ]
 
             for cases in futures:
                 for case in cases:
@@ -334,18 +337,25 @@ def run(
         # Checking sizes of images
         logger.info("Checking image sizes")
         image_df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
-        for manifest in manifests:
-            image_name, age_days, image_size = pull_image_size(
-                acr_name, manifest
-            )
-            image_df = image_df.append(
-                {
-                    "image_name": image_name,
-                    "age_days": age_days,
-                    "size_gb": image_size,
-                },
-                ignore_index=True,
-            )
+
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = [
+                executor.submit(pull_image_size, acr_name, manifest)
+                for manifest in manifests
+            ]
+
+            for future in futures:
+                image_name, ages_days, image_size = future
+
+                image_df = image_df.append(
+                    {
+                        "image_name": image_name,
+                        "age_days": age_days,
+                        "size_gb": image_size,
+                    },
+                    ignore_index=True,
+                )
+
         image_df.set_index("image_name", inplace=True)
 
         # If the ACR is under the size limit but purge has been set anyway,
