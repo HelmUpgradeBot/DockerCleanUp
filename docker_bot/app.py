@@ -330,7 +330,7 @@ def run(
                 for repo in repos
             ]
 
-            for cases in futures:
+            for cases in as_completed(futures):
                 for case in cases:
                     manifests.update(case)
 
@@ -344,7 +344,7 @@ def run(
                 for manifest in manifests
             ]
 
-            for future in futures:
+            for future in as_completed(futures):
                 image_name, ages_days, image_size = future
 
                 image_df = image_df.append(
