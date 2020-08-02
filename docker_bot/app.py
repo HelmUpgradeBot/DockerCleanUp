@@ -156,8 +156,8 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
     return manifests
 
 
-def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
-    """Get the size of an image in an Azure Container Registry
+def pull_image_age(acr_name: str, manifest: dict) -> Tuple[str, int]:
+    """Get the age of an image in an Azure Container Registry
 
     Args:
         acr_name (str): Name of the ACR
@@ -166,7 +166,6 @@ def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
     Returns:
         image_name (str): Name of the image -> repo@digest
         age_days (int): Age of the image in days
-        size_gb (float): Size of the image in GB
     """
     # Get the time difference between now and the manifest timestamp in days
     timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
@@ -174,28 +173,6 @@ def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
     logger.info(
         "%s@%s is %d days old" % (manifest["repo"], manifest["digest"], diff)
     )
-
-    # Check the size of the image
-    image_size_cmd = [
-        "az",
-        "acr",
-        "repository",
-        "show",
-        "-n",
-        acr_name,
-        "--imag",
-        f"{manifest['repo']}@{manifest['digest']}",
-        "--query",
-        "imageSize",
-        "-o",
-        "tsv",
-    ]
-
-    result = run_cmd(image_size_cmd)
-
-    if result["returncode"] != 0:
-        logger.error(result["err_msg"])
-        raise RuntimeError(result["err_msg"])
 
     return (
         f"{manifest['repo']}@{manifest['digest']}",
@@ -336,22 +313,21 @@ def run(
 
         # Checking sizes of images
         logger.info("Checking image sizes")
-        image_df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
+        image_df = pd.DataFrame(columns=["image_name", "age_days"])
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = [
-                executor.submit(pull_image_size, acr_name, manifest)
+                executor.submit(pull_image_age, acr_name, manifest)
                 for manifest in manifests
             ]
 
             for future in as_completed(futures):
-                image_name, ages_days, image_size = future
+                image_name, ages_days = future
 
                 image_df = image_df.append(
                     {
                         "image_name": image_name,
                         "age_days": age_days,
-                        "size_gb": image_size,
                     },
                     ignore_index=True,
                 )
