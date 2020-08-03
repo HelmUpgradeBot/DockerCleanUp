@@ -2,10 +2,11 @@ import sys
 import json
 import logging
 import datetime
+import itertools
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 logger = logging.getLogger()
 
@@ -300,33 +301,61 @@ def run(
         logger.info("Checking repository manifests")
         manifests = {}
 
-        with ThreadPoolExecutor(max_workers=threads) as executor:
-            futures = [
-                executor.submit(pull_manifest, acr_name, repo)
-                for repo in repos
-            ]
+        with ThreadPoolExecutor() as executor:
+            # Schedule the first `threads` futures. We don't want to schedule
+            # them all at once to avoid consuming excessive amounts of memory.
+            futures = {
+                executor.submit(pull_manifest, acr_name, repo): repo
+                for repo in itertools.islice(repos, threads)
+            }
 
-            for cases in as_completed(futures):
-                for case in cases:
-                    manifests.update(case)
+            while futures:
+                # Wait for the next future to complete
+                done, _ = wait(futures, return_when=FIRST_COMPLETED)
+
+                for fut in done:
+                    cases = futures.pop(fut)
+                    for case in cases.result():
+                        manifests.update(item)
+
+                # Schedule the next set of futures. We don't want more than
+                # `threads` futures in the pool at a time to keep memory
+                # consumption down.
+                for repo in itertools.islice(repos, len(done)):
+                    fut = executor.submit(pull_manifest, acr_name, repo)
+                    futures[fut] = repo
 
         # Checking sizes of images
         logger.info("Checking image sizes")
         image_df = pd.DataFrame(columns=["image_name", "age_days"])
 
-        with ThreadPoolExecutor(max_workers=threads) as executor:
-            futures = [
-                executor.submit(pull_image_age, acr_name, manifest)
-                for manifest in manifests
-            ]
+        with ThreadPoolExecutor() as executor:
+            # Schedule the first `threads` futures. We don't want to schedule
+            # them all at once, to avoid consuming excessive amounts of memory.
+            futures = {
+                executor.submit(pull_image_age, acr_name, manifest): manifest
+                for manifest in itertools.islice(manifests, threads)
+            }
 
-            for future in as_completed(futures):
-                image_name, ages_days = future
+            while futures:
+                # Wait for the next future to complete
+                done, _ = wait(futures, return_when=FIRST_COMPLETED)
 
-                image_df = image_df.append(
-                    {"image_name": image_name, "age_days": age_days},
-                    ignore_index=True,
-                )
+                for fut in done:
+                    output = futures.pop(fut)
+                    image_name, age_days = future
+
+                    image_df = image_df.append(
+                        {"image_name": image_name, "age_days": age_days},
+                        ignore_index=True,
+                    )
+
+                # Schedule the next set of futures. We don't want more than
+                # `threads` futures in the pool at a time, to keep memory
+                # consumption down.
+                for manifest in itertools.islice(manifests, len(done)):
+                    fut = executor.submit(pull_image_age, acr_name, manifest)
+                    futures[fut] = manifest
 
         image_df.set_index("image_name", inplace=True)
 
