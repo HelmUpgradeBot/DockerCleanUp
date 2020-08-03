@@ -460,7 +460,7 @@ def test_purge_all(mock_args):
     "docker_bot.app.run_cmd",
     return_value={"returncode": 1, "err_msg": "Could not run command"},
 )
-def test_purge_all(mock_args):
+def test_purge_all_exception(mock_args):
     acr_name = "test_acr"
     test_df = pd.DataFrame(
         {"image_name": ["image1", "image2"], "age_days": [67, 53]}
