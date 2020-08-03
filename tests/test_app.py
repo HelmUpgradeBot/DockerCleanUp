@@ -11,6 +11,7 @@ from docker_bot.app import (
     pull_manifests,
     pull_image_age,
     pull_repos,
+    purge_all,
     sort_image_df,
 )
 
@@ -409,3 +410,78 @@ def test_login_exception(mock_args):
 
         assert mock.call_count == 2
         assert mock.call_args_list == expected_calls
+
+
+@patch("docker_bot.app.run_cmd")
+def test_purge_all(mock_args):
+    acr_name = "test_acr"
+    test_df = pd.DataFrame(
+        {"image_name": ["image1", "image2"], "age_days": [67, 53]}
+    )
+    test_df.set_index("image_name", inplace=True)
+    expected_calls = [
+        call(
+            [
+                "az",
+                "acr",
+                "repository",
+                "delete",
+                "-n",
+                acr_name,
+                "--image",
+                "image1",
+                "--yes",
+            ]
+        ),
+        call(
+            [
+                "az",
+                "acr",
+                "repository",
+                "delete",
+                "-n",
+                acr_name,
+                "--image",
+                "image2",
+                "--yes",
+            ]
+        ),
+    ]
+
+    mock_args.side_effect = [{"returncode": 0}, {"returncode": 0}]
+
+    purge_all(acr_name, test_df)
+
+    assert mock_args.call_count == 2
+    assert mock_args.call_args_list == expected_calls
+
+
+@patch(
+    "docker_bot.app.run_cmd",
+    return_value={"returncode": 1, "err_msg": "Could not run command"},
+)
+def test_purge_all(mock_args):
+    acr_name = "test_acr"
+    test_df = pd.DataFrame(
+        {"image_name": ["image1", "image2"], "age_days": [67, 53]}
+    )
+    test_df.set_index("image_name", inplace=True)
+    expected_call = call(
+        [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            acr_name,
+            "--image",
+            "image1",
+            "--yes",
+        ]
+    )
+
+    with mock_args as mock, pytest.raises(RuntimeError):
+        purge_all(acr_name, test_df)
+
+        assert mock.call_count == 1
+        assert mock.call_args == expected_call

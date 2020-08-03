@@ -2,7 +2,6 @@ import sys
 import json
 import logging
 import datetime
-import itertools
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
@@ -254,7 +253,7 @@ def purge_all(acr_name: str, df: pd.DataFrame) -> None:
         result = run_cmd(delete_cmd)
 
         if result["returncode"] != 0:
-            logger.erro(result["err_msg"])
+            logger.error(result["err_msg"])
             raise RuntimeError(result["err_msg"])
 
 
