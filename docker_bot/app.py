@@ -6,7 +6,7 @@ import itertools
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger()
 
@@ -301,61 +301,33 @@ def run(
         logger.info("Checking repository manifests")
         manifests = {}
 
-        with ThreadPoolExecutor() as executor:
-            # Schedule the first `threads` futures. We don't want to schedule
-            # them all at once to avoid consuming excessive amounts of memory.
+        with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = {
                 executor.submit(pull_manifest, acr_name, repo): repo
-                for repo in itertools.islice(repos, threads)
+                for repo in repos
             }
 
-            while futures:
-                # Wait for the next future to complete
-                done, _ = wait(futures, return_when=FIRST_COMPLETED)
-
-                for fut in done:
-                    cases = futures.pop(fut)
-                    for case in cases.result():
-                        manifests.update(item)
-
-                # Schedule the next set of futures. We don't want more than
-                # `threads` futures in the pool at a time to keep memory
-                # consumption down.
-                for repo in itertools.islice(repos, len(done)):
-                    fut = executor.submit(pull_manifest, acr_name, repo)
-                    futures[fut] = repo
+            for cases in as_completed(futures):
+                for case in cases:
+                    manifests.update(case)
 
         # Checking sizes of images
         logger.info("Checking image sizes")
         image_df = pd.DataFrame(columns=["image_name", "age_days"])
 
-        with ThreadPoolExecutor() as executor:
-            # Schedule the first `threads` futures. We don't want to schedule
-            # them all at once, to avoid consuming excessive amounts of memory.
+        with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = {
                 executor.submit(pull_image_age, acr_name, manifest): manifest
-                for manifest in itertools.islice(manifests, threads)
+                for manifest in manifests
             }
 
-            while futures:
-                # Wait for the next future to complete
-                done, _ = wait(futures, return_when=FIRST_COMPLETED)
+            for future in as_completed(futures):
+                image_name, age_days = future.result()
 
-                for fut in done:
-                    output = futures.pop(fut)
-                    image_name, age_days = future
-
-                    image_df = image_df.append(
-                        {"image_name": image_name, "age_days": age_days},
-                        ignore_index=True,
-                    )
-
-                # Schedule the next set of futures. We don't want more than
-                # `threads` futures in the pool at a time, to keep memory
-                # consumption down.
-                for manifest in itertools.islice(manifests, len(done)):
-                    fut = executor.submit(pull_image_age, acr_name, manifest)
-                    futures[fut] = manifest
+                image_df = image_df.append(
+                    {"image_name": image_name, "age_days": age_days},
+                    ignore_index=True,
+                )
 
         image_df.set_index("image_name", inplace=True)
 
@@ -384,9 +356,15 @@ def run(
                 )
 
                 # Delete the old images
-                for image_name in images_to_delete.index:
-                    delete_image(acr_name, image_name)
-                    image_df.drop(image_name, inplace=True)
+                with ThreadPoolExecutor(max_workers=threads) as executor:
+                    futures = {
+                        executor.submit(delete_image, acr_name, image_name)
+                        for image_name in images_to_delete.index
+                    }
+
+                    for future in as_completed(futures):
+                        original_image = futures.pop(future)
+                        image_df.drop(original_image, inplace=True)
 
             # Re-check ACR size
             size, proceed = check_acr_size(acr_name)
