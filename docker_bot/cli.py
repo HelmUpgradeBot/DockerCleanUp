@@ -43,7 +43,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "-t",
-        "--thread",
+        "--threads",
         type=int,
         default=1,
         help="Number of threads to parallelise over",
@@ -96,6 +96,7 @@ def main():
         args.name,
         args.max_age,
         args.limit,
+        args.threads,
         dry_run=args.dry_run,
         purge=args.purge,
         identity=args.identity,
