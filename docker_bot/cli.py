@@ -1,4 +1,5 @@
 import sys
+import logging
 import argparse
 from .app import run
 from multiprocessing import cpu_count

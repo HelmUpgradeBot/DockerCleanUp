@@ -147,7 +147,6 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
 
     logging.info("Successfully pulled mainfests")
     manifests = json.loads(result["output"])
-    print(manifests)
     logger.info("Total number of manifests in %s: %d" % (repo, len(manifests)))
 
     for manifest in manifests:
@@ -286,7 +285,7 @@ def run(
         logger.info("ALL IMAGES WILL BE DELETED!")
 
     # Login to Azure and ACR
-    login(identity=identity)
+    login(acr_name, identity=identity)
 
     # Check the size of the ACR
     size, proceed = check_acr_size(acr_name, limit)
@@ -298,17 +297,17 @@ def run(
 
         # Get the manifests for the repos in the ACR
         logger.info("Checking repository manifests")
-        manifests = {}
+        manifests = []
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = {
-                executor.submit(pull_manifest, acr_name, repo): repo
+                executor.submit(pull_manifests, acr_name, repo): repo
                 for repo in repos
             }
 
             for cases in as_completed(futures):
-                for case in cases:
-                    manifests.update(case)
+                for case in cases.result():
+                    manifests.append(case)
 
         # Checking sizes of images
         logger.info("Checking image sizes")
