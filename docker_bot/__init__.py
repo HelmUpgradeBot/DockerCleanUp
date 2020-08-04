@@ -7,7 +7,8 @@ from .app import (
     login,
     pull_repos,
     pull_manifests,
-    pull_image_size,
+    pull_image_age,
+    purge_all,
     sort_image_df,
     run,
 )

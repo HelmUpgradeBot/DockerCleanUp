@@ -9,8 +9,9 @@ from docker_bot.app import (
     delete_image,
     login,
     pull_manifests,
-    pull_image_size,
+    pull_image_age,
     pull_repos,
+    purge_all,
     sort_image_df,
 )
 
@@ -185,7 +186,7 @@ def test_pull_manifests_exception(mock_args):
         assert mock.return_value["err_msg"] == "Could not run command"
 
 
-def test_pull_image_size():
+def test_pull_image_age():
     acr_name = "test_acr"
     repo = "test_repo"
     manifest = {
@@ -194,76 +195,11 @@ def test_pull_image_size():
         "repo": "test_repo",
     }
 
-    mock_run = patch(
-        "docker_bot.app.run_cmd",
-        return_value={"returncode": 0, "output": "1000000000"},
-    )
+    with freeze_time("2020-08-01T09:30:00.0000000Z"):
+        out = pull_image_age(acr_name, manifest)
 
-    with mock_run as mock, freeze_time("2020-08-01T09:30:00.0000000Z"):
-        out = pull_image_size(acr_name, manifest)
-
-        mock.assert_called_once()
-        mock.assert_called_once_with(
-            [
-                "az",
-                "acr",
-                "repository",
-                "show",
-                "-n",
-                acr_name,
-                "--imag",
-                f"{repo}@{manifest['digest']}",
-                "--query",
-                "imageSize",
-                "-o",
-                "tsv",
-            ]
-        )
-        assert mock.return_value == {"returncode": 0, "output": "1000000000"}
         assert out[0] == f"{repo}@{manifest['digest']}"
         assert out[1] == 1
-        assert out[2] == 1.0
-
-
-def test_pull_image_size_exception():
-    acr_name = "test_acr"
-    manifest = {
-        "timestamp": "2020-07-30T21:12:00.0000000Z",
-        "digest": "image_digest",
-        "repo": "test_repo",
-    }
-
-    mock_run = patch(
-        "docker_bot.app.run_cmd",
-        return_value={"returncode": 1, "err_msg": "Could not run command"},
-    )
-
-    with mock_run as mock, freeze_time(
-        "2020-08-01T09:30:00.0000000Z"
-    ), pytest.raises(RuntimeError):
-        pull_image_size(acr_name, manifest)
-
-        mock.assert_called_once()
-        mock.assert_called_once_with(
-            [
-                "az",
-                "acr",
-                "repository",
-                "show",
-                "-n",
-                acr_name,
-                "--imag",
-                f"{repo}@{manifest['digest']}",
-                "--query",
-                "imageSize",
-                "-o",
-                "tsv",
-            ]
-        )
-        assert mock.return_value == {
-            "returncode": 1,
-            "err_msg": "Could not run command",
-        }
 
 
 @patch(
@@ -474,3 +410,78 @@ def test_login_exception(mock_args):
 
         assert mock.call_count == 2
         assert mock.call_args_list == expected_calls
+
+
+@patch("docker_bot.app.run_cmd")
+def test_purge_all(mock_args):
+    acr_name = "test_acr"
+    test_df = pd.DataFrame(
+        {"image_name": ["image1", "image2"], "age_days": [67, 53]}
+    )
+    test_df.set_index("image_name", inplace=True)
+    expected_calls = [
+        call(
+            [
+                "az",
+                "acr",
+                "repository",
+                "delete",
+                "-n",
+                acr_name,
+                "--image",
+                "image1",
+                "--yes",
+            ]
+        ),
+        call(
+            [
+                "az",
+                "acr",
+                "repository",
+                "delete",
+                "-n",
+                acr_name,
+                "--image",
+                "image2",
+                "--yes",
+            ]
+        ),
+    ]
+
+    mock_args.side_effect = [{"returncode": 0}, {"returncode": 0}]
+
+    purge_all(acr_name, test_df)
+
+    assert mock_args.call_count == 2
+    assert mock_args.call_args_list == expected_calls
+
+
+@patch(
+    "docker_bot.app.run_cmd",
+    return_value={"returncode": 1, "err_msg": "Could not run command"},
+)
+def test_purge_all_exception(mock_args):
+    acr_name = "test_acr"
+    test_df = pd.DataFrame(
+        {"image_name": ["image1", "image2"], "age_days": [67, 53]}
+    )
+    test_df.set_index("image_name", inplace=True)
+    expected_call = call(
+        [
+            "az",
+            "acr",
+            "repository",
+            "delete",
+            "-n",
+            acr_name,
+            "--image",
+            "image1",
+            "--yes",
+        ]
+    )
+
+    with mock_args as mock, pytest.raises(RuntimeError):
+        purge_all(acr_name, test_df)
+
+        assert mock.call_count == 1
+        assert mock.call_args == expected_call

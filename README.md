@@ -79,8 +79,8 @@ You will need to restart the terminal for the second command to take effect.
 ## :children_crossing: Usage
 
 ```bash
-usage: docker-bot [-h] [-a MAX_AGE] [-l LIMIT] [--identity] [--dry-run]
-                  [--purge] [-v]
+usage: docker-bot [-h] [-a MAX_AGE] [-l LIMIT] [-t THREADS] [--identity]
+                  [--dry-run] [--purge] [-v]
                   name
 
 Script to clean old Docker images out of an Azure Container Registry (ACR)
@@ -96,6 +96,8 @@ optional arguments:
   -l LIMIT, --limit LIMIT
                         Maximum size in TB the ACR is allowed to grow to.
                         Default: 2 TB.
+  -t THREADS, --threads THREADS
+                        Number of threads to parallelise over
   --identity            Login to Azure with a Managed System Identity
   --dry-run             Do a dry-run, no images will be deleted.
   --purge               Purge all repositories within the ACR

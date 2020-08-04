@@ -1,6 +1,8 @@
 import sys
+import logging
 import argparse
 from .app import run
+from multiprocessing import cpu_count
 
 
 def logging_config(verbose: bool = False) -> None:
@@ -40,6 +42,13 @@ def parse_args(args):
         default=2.0,
         help="Maximum size in TB the ACR is allowed to grow to. Default: 2 TB.",
     )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        help="Number of threads to parallelise over",
+    )
 
     parser.add_argument(
         "--identity",
@@ -67,6 +76,15 @@ def check_parser(args):
     if args.dry_run and args.purge:
         raise ValueError("purge and dry-run options cannot be used together")
 
+    if args.threads != 1:
+        cpus = cpu_count()
+        if args.threads > cpus:
+            raise ValueError(
+                "You have requested more threads than are available cores on this machine.\n"
+                f"This machine has {cpus} CPUs available.\n"
+                "Please adjust the value of --threads accordingly."
+            )
+
 
 def main():
     """Main function"""
@@ -79,6 +97,7 @@ def main():
         args.name,
         args.max_age,
         args.limit,
+        args.threads,
         dry_run=args.dry_run,
         purge=args.purge,
         identity=args.identity,

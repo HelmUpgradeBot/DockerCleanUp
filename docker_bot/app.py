@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 from typing import Tuple
 from .helper_functions import run_cmd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger()
 
@@ -146,7 +147,6 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
 
     logging.info("Successfully pulled mainfests")
     manifests = json.loads(result["output"])
-    print(manifests)
     logger.info("Total number of manifests in %s: %d" % (repo, len(manifests)))
 
     for manifest in manifests:
@@ -155,8 +155,8 @@ def pull_manifests(acr_name: str, repo: str) -> dict:
     return manifests
 
 
-def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
-    """Get the size of an image in an Azure Container Registry
+def pull_image_age(acr_name: str, manifest: dict) -> Tuple[str, int]:
+    """Get the age of an image in an Azure Container Registry
 
     Args:
         acr_name (str): Name of the ACR
@@ -165,7 +165,6 @@ def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
     Returns:
         image_name (str): Name of the image -> repo@digest
         age_days (int): Age of the image in days
-        size_gb (float): Size of the image in GB
     """
     # Get the time difference between now and the manifest timestamp in days
     timestamp = pd.to_datetime(manifest["timestamp"]).tz_localize(None)
@@ -174,32 +173,9 @@ def pull_image_size(acr_name: str, manifest: dict) -> Tuple[str, int, float]:
         "%s@%s is %d days old" % (manifest["repo"], manifest["digest"], diff)
     )
 
-    # Check the size of the image
-    image_size_cmd = [
-        "az",
-        "acr",
-        "repository",
-        "show",
-        "-n",
-        acr_name,
-        "--imag",
-        f"{manifest['repo']}@{manifest['digest']}",
-        "--query",
-        "imageSize",
-        "-o",
-        "tsv",
-    ]
-
-    result = run_cmd(image_size_cmd)
-
-    if result["returncode"] != 0:
-        logger.error(result["err_msg"])
-        raise RuntimeError(result["err_msg"])
-
     return (
         f"{manifest['repo']}@{manifest['digest']}",
         diff,
-        int(result["output"]) * 1.0e-9,
     )
 
 
@@ -276,7 +252,7 @@ def purge_all(acr_name: str, df: pd.DataFrame) -> None:
         result = run_cmd(delete_cmd)
 
         if result["returncode"] != 0:
-            logger.erro(result["err_msg"])
+            logger.error(result["err_msg"])
             raise RuntimeError(result["err_msg"])
 
 
@@ -284,6 +260,7 @@ def run(
     acr_name: str,
     max_age: int,
     limit: float,
+    threads: int,
     dry_run: bool = False,
     purge: bool = False,
     identity: bool = False,
@@ -294,6 +271,7 @@ def run(
         acr_name (str): The name of the ACR to clean
         max_age (int): The maximum image age in days
         limit (float): The maximum size limit of the ACR in TB
+        threads (int): The number of threads to parallelise over
         dry_run (bool, optional): Don't delete any images from the ACR.
                                   Defaults to False.
         purge (bool, optional): Delete all images from the ACR.
@@ -307,7 +285,7 @@ def run(
         logger.info("ALL IMAGES WILL BE DELETED!")
 
     # Login to Azure and ACR
-    login(identity=identity)
+    login(acr_name, identity=identity)
 
     # Check the size of the ACR
     size, proceed = check_acr_size(acr_name, limit)
@@ -319,27 +297,36 @@ def run(
 
         # Get the manifests for the repos in the ACR
         logger.info("Checking repository manifests")
-        manifests = {}
-        for repo in repos:
-            cases = pull_manifests(acr_name, repo)
-            for case in cases:
-                manifests.update(case)
+        manifests = []
+
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = {
+                executor.submit(pull_manifests, acr_name, repo): repo
+                for repo in repos
+            }
+
+            for cases in as_completed(futures):
+                for case in cases.result():
+                    manifests.append(case)
 
         # Checking sizes of images
         logger.info("Checking image sizes")
-        image_df = pd.DataFrame(columns=["image_name", "age_days", "size_gb"])
-        for manifest in manifests:
-            image_name, age_days, image_size = pull_image_size(
-                acr_name, manifest
-            )
-            image_df = image_df.append(
-                {
-                    "image_name": image_name,
-                    "age_days": age_days,
-                    "size_gb": image_size,
-                },
-                ignore_index=True,
-            )
+        image_df = pd.DataFrame(columns=["image_name", "age_days"])
+
+        with ThreadPoolExecutor(max_workers=threads) as executor:
+            futures = {
+                executor.submit(pull_image_age, acr_name, manifest): manifest
+                for manifest in manifests
+            }
+
+            for future in as_completed(futures):
+                image_name, age_days = future.result()
+
+                image_df = image_df.append(
+                    {"image_name": image_name, "age_days": age_days},
+                    ignore_index=True,
+                )
+
         image_df.set_index("image_name", inplace=True)
 
         # If the ACR is under the size limit but purge has been set anyway,
@@ -367,9 +354,15 @@ def run(
                 )
 
                 # Delete the old images
-                for image_name in images_to_delete.index:
-                    delete_image(acr_name, image_name)
-                    image_df.drop(image_name, inplace=True)
+                with ThreadPoolExecutor(max_workers=threads) as executor:
+                    futures = {
+                        executor.submit(delete_image, acr_name, image_name)
+                        for image_name in images_to_delete.index
+                    }
+
+                    for future in as_completed(futures):
+                        original_image = futures.pop(future)
+                        image_df.drop(original_image, inplace=True)
 
             # Re-check ACR size
             size, proceed = check_acr_size(acr_name)
